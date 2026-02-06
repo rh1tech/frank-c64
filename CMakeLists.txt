@@ -23,23 +23,24 @@ set(FIRMWARE_VERSION "v1.03" CACHE STRING "Firmware version string")
 # Set board to Pico 2 (RP2350)
 set(PICO_BOARD pico2 CACHE STRING "Pico board type")
 
-# Board configuration variant (M1, M2)
-set(BOARD_VARIANT "M2" CACHE STRING "Board variant: M1 or M2")
+# Board configuration variant (M1, M2, PC or Z0)
+set(BOARD_VARIANT "M1" CACHE STRING "Board variant: M1, M2 or PC")
 
 # Video output type (VGA or HDMI)
-set(VIDEO_TYPE "VGA" CACHE STRING "Video output: VGA or HDMI")
+set(VIDEO_TYPE "HDMI" CACHE STRING "Video output: VGA or HDMI")
 
 # Audio output configuration (I2S or PWM)
-set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
+set(AUDIO_TYPE "I2S" CACHE STRING "Audio output: I2S or PWM")
 
 # MOS2 support (generate .m1p2 or .m2p2 for Murmulator OS instead of .uf2)
 option(MOS2 "MOS2 support" OFF)
 
 # CPU overclock configuration (252, 378, 428(VGA), 504 MHz)
-set(CPU_SPEED "378" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
+set(CPU_SPEED "504" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
 
 # PSRAM speed configuration (84, 100, 133, 166 MHz target)
-set(PSRAM_SPEED "84" CACHE STRING "PSRAM max frequency in MHz: 84, 100, 133, 166")
+set(PSRAM_SPEED "166" CACHE STRING "PSRAM max frequency in MHz: 84, 100, 133, 166")
+set(FLASH_MAX_FREQ_MHZ "66")
 
 if(VIDEO_TYPE STREQUAL "HDMI")
     set(VIDEO_HDMI ON)
@@ -49,6 +50,10 @@ endif()
 
 if(BOARD_VARIANT STREQUAL "M1")
     SET(BUILD_NAME "m1p2-${BUILD_NAME}")
+elseif(BOARD_VARIANT STREQUAL "PC")
+    SET(BUILD_NAME "PCp2-${BUILD_NAME}")
+elseif(BOARD_VARIANT STREQUAL "Z0")
+    SET(BUILD_NAME "z0p2-${BUILD_NAME}")
 else()  # M2
     SET(BUILD_NAME "m2p2-${BUILD_NAME}")
 endif()
@@ -60,8 +65,7 @@ IF(VIDEO_HDMI)
     SET(BUILD_NAME "${BUILD_NAME}-HDMI")
 endif ()
 
-SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz")
-SET(BUILD_NAME "${BUILD_NAME}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-P${PSRAM_SPEED}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
 
 # CPU voltage selection based on speed
 if(CPU_SPEED GREATER_EQUAL 504)
@@ -78,11 +82,17 @@ if(BOARD_VARIANT STREQUAL "M1")
     set(I2S_CLOCK_PIN_BASE "27")
     set(PWM_RIGHT_PIN "26")
     set(PWM_LEFT_PIN "27")
-    set(BEEPER_PIN "28")
+elseif(BOARD_VARIANT STREQUAL "PC")
+    set(PWM_RIGHT_PIN "27")
+    set(PWM_LEFT_PIN "28")
+elseif(BOARD_VARIANT STREQUAL "Z0")
+    set(I2S_DATA_PIN "10")
+    set(I2S_CLOCK_PIN_BASE "11")
+    set(PWM_RIGHT_PIN "10")
+    set(PWM_LEFT_PIN "11")
 else()  # M2
     set(I2S_DATA_PIN "9")
     set(I2S_CLOCK_PIN_BASE "10")
-    set(BEEPER_PIN "9")
     set(PWM_RIGHT_PIN "10")
     set(PWM_LEFT_PIN "11")
 endif()
@@ -115,13 +125,13 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 if (MOS2)
     IF(BOARD_VARIANT STREQUAL "M2")
         SET(BUILD_NAME "${BUILD_NAME}.m2p2")
+    ELSEIF(BOARD_VARIANT STREQUAL "PC")
+        SET(BUILD_NAME "${BUILD_NAME}.PCp2")
 # TODO: support later
-#    ELSEIF(PICO_PC)
-#        SET(BUILD_NAME "${BUILD_NAME}.PCp2")
 #    ELSEIF(PICO_DV)
 #        SET(BUILD_NAME "${BUILD_NAME}.DVp2")
-#    ELSEIF(ZERO2)
-#        SET(BUILD_NAME "${BUILD_NAME}.z0p2")
+    ELSEIF(BOARD_VARIANT STREQUAL "Z0")
+        SET(BUILD_NAME "${BUILD_NAME}.z0p2")
     ELSE()
         SET(BUILD_NAME "${BUILD_NAME}.m1p2")
     ENDIF()
@@ -259,6 +269,7 @@ target_compile_definitions(${BUILD_NAME} PRIVATE
     CPU_CLOCK_MHZ=${CPU_SPEED}
     CPU_VOLTAGE=${CPU_VOLTAGE}
     PSRAM_MAX_FREQ_MHZ=${PSRAM_SPEED}
+    FLASH_MAX_FREQ_MHZ=${FLASH_MAX_FREQ_MHZ}
     FIRMWARE_VERSION="${FIRMWARE_VERSION}"
     # RP2350 platform flag
     FRODO_RP2350=1

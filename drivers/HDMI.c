@@ -454,7 +454,7 @@ static inline bool hdmi_init() {
 
     //выключение SM основной и конвертора
 
-#if ZERO2
+#if BOARD_Z0
     pio_set_gpio_base(PIO_VIDEO, 16);
     pio_set_gpio_base(PIO_VIDEO_ADDR, 16);
 #endif
@@ -528,12 +528,12 @@ static inline bool hdmi_init() {
         gpio_set_slew_rate(beginHDMI_PIN_clk + i, GPIO_SLEW_RATE_FAST);
     }
 
-#if ZERO2
+#if BOARD_Z0
     // Настройка направлений пинов для state machines
     pio_sm_set_consecutive_pindirs(PIO_VIDEO, SM_video, HDMI_BASE_PIN, 8, true);
     pio_sm_set_consecutive_pindirs(PIO_VIDEO_ADDR, SM_conv, HDMI_BASE_PIN, 8, true);
 
-    uint64_t mask64 = (uint64_t)(3u << beginHDMI_PIN_clk);
+    uint64_t mask64 = (uint64_t)(3ull << beginHDMI_PIN_clk);
     pio_sm_set_pins_with_mask64(PIO_VIDEO, SM_video, mask64, mask64);
     pio_sm_set_pindirs_with_mask64(PIO_VIDEO, SM_video, mask64, mask64);
     // пины

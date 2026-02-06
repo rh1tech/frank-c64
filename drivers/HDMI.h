@@ -12,8 +12,12 @@
 #define HDMI_BASE_PIN (6)
 #endif
 
+#ifndef HDMI_PIN_RGB_notBGR
 #define HDMI_PIN_RGB_notBGR (1)
+#endif
+#ifndef HDMI_PIN_invert_diffpairs
 #define HDMI_PIN_invert_diffpairs (1)
+#endif
 
 #ifndef HDMI_BASE_PIN
 #define HDMI_BASE_PIN (6)

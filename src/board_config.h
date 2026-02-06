@@ -34,7 +34,7 @@
  */
 
 // Default to M1 if no config specified
-#if !defined(BOARD_M1) && !defined(BOARD_M2)
+#if !defined(BOARD_M1) && !defined(BOARD_M2) && !defined(BOARD_PC) && !defined(BOARD_Z0)
 #define BOARD_M1
 #endif
 
@@ -162,6 +162,72 @@ static inline uint get_psram_pin(void) {
 #define PWM_LEFT_PIN 11
 
 #endif // BOARD_M2
+
+//=============================================================================
+// Olimex PICO-PC Layout Configuration
+//=============================================================================
+#ifdef BOARD_PC
+
+// HDMI Pins
+#define HDMI_PIN_CLKN 12
+
+#define HDMI_BASE_PIN HDMI_PIN_CLKN
+
+// SD Card Pins
+#define SDCARD_PIN_CLK    6
+#define SDCARD_PIN_CMD    7
+#define SDCARD_PIN_D0     4
+#define SDCARD_PIN_D3     22
+
+// PS/2 Keyboard Pins
+#define PS2_PIN_CLK  0
+#define PS2_PIN_DATA 1
+
+// NES/SNES Gamepad Pins (directly after HDMI pins)
+#define NESPAD_GPIO_CLK   5
+#define NESPAD_GPIO_DATA  20
+#define NESPAD_GPIO_LATCH 9
+
+#define PWM_RIGHT_PIN 27
+#define PWM_LEFT_PIN 28
+
+#endif // BOARD_PC
+
+//=============================================================================
+// Wavshare RP2350-PiZero Layout Configuration
+//=============================================================================
+#ifdef BOARD_Z0
+
+// HDMI Pins
+#define HDMI_PIN_CLKN 32
+
+#define HDMI_BASE_PIN HDMI_PIN_CLKN
+
+#define HDMI_PIN_RGB_notBGR (0)
+#define HDMI_PIN_invert_diffpairs (0)
+#define beginHDMI_PIN_data (HDMI_BASE_PIN)
+#define beginHDMI_PIN_clk (HDMI_BASE_PIN + 6)
+
+// SD Card Pins
+#define SDCARD_SPI_BUS    spi1
+#define SDCARD_PIN_CLK    30
+#define SDCARD_PIN_CMD    31
+#define SDCARD_PIN_D0     40
+#define SDCARD_PIN_D3     43
+
+// PS/2 Keyboard Pins
+#define PS2_PIN_CLK  2
+#define PS2_PIN_DATA 3
+
+// NES/SNES Gamepad Pins (directly after HDMI pins)
+#define NESPAD_GPIO_CLK   4
+#define NESPAD_GPIO_LATCH 5
+#define NESPAD_GPIO_DATA  7
+
+#define PWM_RIGHT_PIN 10
+#define PWM_LEFT_PIN 11
+
+#endif // BOARD_Z0
 
 //=============================================================================
 // Commodore 64 Display Configuration
