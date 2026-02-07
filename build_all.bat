@@ -7,7 +7,7 @@ set BUILD_DIR=%SRC_DIR%\build
 set CMAKE=C:\Users\New\.pico-sdk\cmake\v3.31.5\bin\cmake.exe
 
 REM ===== Config sets =====
-set BOARD_VARIANTS=M1 M2
+set BOARD_VARIANTS=M1 M2 PC Z0
 set VIDEO_TYPES=VGA HDMI
 set AUDIO_TYPES=I2S PWM
 set MOS2_MODES=OFF ON
@@ -22,6 +22,13 @@ for %%B in (%BOARD_VARIANTS%) do (
           REM --- skip invalid: CPU=428 only for VGA ---
           set "SKIP=0"
           if "%%C"=="428" if not "%%V"=="VGA" set "SKIP=1"
+
+          REM --- skip invalid: Z0 and PC do not support VGA ---
+          if "%%V"=="VGA" if "%%B"=="Z0" set "SKIP=1"
+          if "%%V"=="VGA" if "%%B"=="PC" set "SKIP=1"
+
+          REM --- skip invalid: PC does not support i2s audio ---
+          if "%%B"=="PC" if "%%A"=="I2S" set "SKIP=1"
 
           if "!SKIP!"=="1" (
             echo Skipping: %%B %%V %%A MOS2=%%M CPU=%%C

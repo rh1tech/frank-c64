@@ -370,7 +370,7 @@ static struct {
 
     // Joystick port selection (1 or 2, directly maps to C64 port)
     // Most games use port 2, but some use port 1
-    int joy_port;  // 1 or 2
+    int joy_port = 2;  // 1 or 2
 
     // PS/2 state
     bool ps2_extended;
@@ -526,10 +526,26 @@ static void set_c64_key(int c64_key, bool pressed) {
     }
 }
 
+// map NES pad state to C64 joystick format
+inline static uint8_t map_nes_to_c64(uint32_t pad) {
+    uint8_t joy = 0xFF;  // All released
+    if ((pad & DPAD_UP) && (pad & DPAD_DOWN)) return joy;
+    if ((pad & DPAD_LEFT) && (pad & DPAD_RIGHT)) return joy;
+    if (pad & DPAD_UP)    joy &= ~0x01;  // Up
+    if (pad & DPAD_DOWN)  joy &= ~0x02;  // Down
+    if (pad & DPAD_LEFT)  joy &= ~0x04;  // Left
+    if (pad & DPAD_RIGHT) joy &= ~0x08;  // Right
+    if (pad & (DPAD_A | DPAD_B)) joy &= ~0x10;  // A or B -> Fire
+    return joy;
+}
+
 void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joystick)
 {
+    constexpr uint8_t MOD_LSHIFT = 0x02;
+    constexpr uint8_t MOD_RSHIFT = 0x20;
+    static bool f9_was_pressed = false;
     static bool f11_was_pressed = false;
-
+    uint8_t mods = 0;
 #if ENABLE_PS2_KEYBOARD
     // Poll PS/2 keyboard
     ps2kbd_tick();
@@ -540,7 +556,6 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
         // Default: Gamepad1 -> Port2, Gamepad2 -> Port1
         // Swapped: Gamepad1 -> Port1, Gamepad2 -> Port2
         if (key == 0xF9) {  // F9
-            static bool f9_was_pressed = false;
             if (pressed && !f9_was_pressed) {
                 input_state.joy_port = (input_state.joy_port == 1) ? 2 : 1;
                 if (input_state.joy_port == 2) {
@@ -650,16 +665,27 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
     }
 
     // Handle shift key from modifiers and shift lock
-    uint8_t mods = ps2kbd_get_modifiers();
-    bool shift_active = (mods & 0x22) || input_state.shift_lock;  // L/R Shift or Shift Lock
-    if (shift_active) {
-        input_state.key_matrix[1] &= ~0x80;  // Left shift
-        input_state.rev_matrix[7] &= ~0x02;
-    } else {
-        input_state.key_matrix[1] |= 0x80;
-        input_state.rev_matrix[7] |= 0x02;
+    mods = ps2kbd_get_modifiers();
+    {
+        bool lshift = (mods & MOD_LSHIFT) || input_state.shift_lock;
+        bool rshift = (mods & MOD_RSHIFT);
+        // Left Shift (row 1, bit 7)
+        if (lshift) {
+            input_state.key_matrix[1] &= ~0x80;
+            input_state.rev_matrix[7] &= ~0x02;
+        } else {
+            input_state.key_matrix[1] |= 0x80;
+            input_state.rev_matrix[7] |= 0x02;
+        }
+        // Right Shift (row 6, bit 4)
+        if (rshift) {
+            input_state.key_matrix[6] &= ~0x10;
+            input_state.rev_matrix[4] &= ~0x40;
+        } else {
+            input_state.key_matrix[6] |= 0x10;
+            input_state.rev_matrix[4] |= 0x40;
+        }
     }
-
     // Handle Ctrl key (L-Ctrl only - R-Ctrl is used for joystick fire)
     if (mods & 0x01) {  // L-Ctrl only
         input_state.key_matrix[7] &= ~0x04;  // CTRL
@@ -700,6 +726,18 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
     int usb_pressed;
     unsigned char usb_key;
     while (usbhid_wrapper_get_key(&usb_pressed, &usb_key)) {
+        if (usb_key == 0xF9) {  // F9
+            if (pressed && !f9_was_pressed) {
+                input_state.joy_port = (input_state.joy_port == 1) ? 2 : 1;
+                if (input_state.joy_port == 2) {
+                    MII_DEBUG_PRINTF("Gamepads: Pad1->Port2, Pad2->Port1 (default)\n");
+                } else {
+                    MII_DEBUG_PRINTF("Gamepads: Pad1->Port1, Pad2->Port2 (swapped)\n");
+                }
+            }
+            f9_was_pressed = pressed;
+            continue;
+        }
         // F10 toggles disk UI
         if (usb_key == 0xFA) {  // F10
             static bool usb_f10_was_pressed = false;
@@ -787,14 +825,28 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
     }
 
     // Handle shift key from USB modifiers and shift lock
-    uint8_t usb_mods = usbhid_wrapper_get_modifiers();
-    bool usb_shift_active = (usb_mods & 0x22) || input_state.shift_lock;  // L/R Shift or Shift Lock
-    if (usb_shift_active) {
-        input_state.key_matrix[1] &= ~0x80;  // Left shift
-        input_state.rev_matrix[7] &= ~0x02;
-    } else {
-        input_state.key_matrix[1] |= 0x80;
-        input_state.rev_matrix[7] |= 0x02;
+    uint8_t usb_mods = mods | usbhid_wrapper_get_modifiers();
+    {
+        bool lshift = (usb_mods & MOD_LSHIFT) || input_state.shift_lock;
+        bool rshift = (usb_mods & MOD_RSHIFT);
+
+        // Left Shift (row 1, bit 7)
+        if (lshift) {
+            input_state.key_matrix[1] &= ~0x80;
+            input_state.rev_matrix[7] &= ~0x02;
+        } else {
+            input_state.key_matrix[1] |= 0x80;
+            input_state.rev_matrix[7] |= 0x02;
+        }
+
+        // Right Shift (row 6, bit 4)
+        if (rshift) {
+            input_state.key_matrix[6] &= ~0x10;
+            input_state.rev_matrix[4] &= ~0x40;
+        } else {
+            input_state.key_matrix[6] |= 0x10;
+            input_state.rev_matrix[4] |= 0x40;
+        }
     }
 
     // Handle Ctrl key (L-Ctrl only - R-Ctrl is used for joystick fire)
@@ -824,17 +876,6 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
     //   DPAD_UP=0x000100, DPAD_DOWN=0x000400, DPAD_LEFT=0x001000, DPAD_RIGHT=0x004000
     //   DPAD_A=0x000001, DPAD_B=0x000004, DPAD_START=0x000040, DPAD_SELECT=0x000010
     // C64 joystick: Up=0x01, Down=0x02, Left=0x04, Right=0x08, Fire=0x10
-
-    // Helper lambda to map NES pad state to C64 joystick format
-    auto map_nes_to_c64 = [](uint32_t pad) -> uint8_t {
-        uint8_t joy = 0xFF;  // All released
-        if (pad & DPAD_UP)    joy &= ~0x01;  // Up
-        if (pad & DPAD_DOWN)  joy &= ~0x02;  // Down
-        if (pad & DPAD_LEFT)  joy &= ~0x04;  // Left
-        if (pad & DPAD_RIGHT) joy &= ~0x08;  // Right
-        if (pad & (DPAD_A | DPAD_B)) joy &= ~0x10;  // A or B -> Fire
-        return joy;
-    };
 
     // Map both NES gamepads
     uint8_t gamepad1_joy = map_nes_to_c64(nespad_state);
@@ -909,6 +950,7 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
     // Return state
     memcpy(key_matrix, input_state.key_matrix, 8);
     memcpy(rev_matrix, input_state.rev_matrix, 8);
+
     *joystick = input_state.joystick1;
 }
 
