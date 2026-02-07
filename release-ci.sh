@@ -101,12 +101,12 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                     # Output filename
                     if [[ "$MOS2" == "ON" ]]; then
                         OUTPUT_NAME="murmc64_m${BOARD_NUM}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.${MOS2_EXT}"
-                        # CMake output: m{1,2}p2-murmc64-{VIDEO}-{CPU}MHz-{AUDIO}-v{VERSION}.{m1p2,m2p2}
-                        BUILD_FILE="${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-${AUDIO}-v${VERSION_DOT}.${MOS2_EXT}"
+                        # CMake output: m{1,2}p2-murmc64-{VIDEO}-{CPU}MHz-F66-{AUDIO}-v{VERSION}.{m1p2,m2p2}
+                        BUILD_FILE="${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-F66-${AUDIO}-v${VERSION_DOT}.${MOS2_EXT}"
                     else
                         OUTPUT_NAME="murmc64_m${BOARD_NUM}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
-                        # CMake output: m{1,2}p2-murmc64-{VIDEO}-{CPU}MHz-{AUDIO}-v{VERSION}.uf2
-                        BUILD_FILE="${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-${AUDIO}-v${VERSION_DOT}.uf2"
+                        # CMake output: m{1,2}p2-murmc64-{VIDEO}-{CPU}MHz-F66-{AUDIO}-v{VERSION}.uf2
+                        BUILD_FILE="${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-F66-${AUDIO}-v${VERSION_DOT}.uf2"
                     fi
 
                     echo ""

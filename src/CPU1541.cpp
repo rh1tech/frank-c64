@@ -61,7 +61,9 @@
 #include "CIA.h"
 #include "IEC.h"
 
+#ifndef FRODO_RP2350
 #include <format>
+#endif
 
 
 /*

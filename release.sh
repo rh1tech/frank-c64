@@ -191,12 +191,12 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                         BIN_DIR="$SCRIPT_DIR/bin/Release"
 
                         # Determine source file based on CMakeLists.txt naming:
-                        # m{1,2}p2-murmc64-{VIDEO}-{CPU}MHz-{AUDIO}-v{VERSION}[.m{1,2}p2][.uf2]
+                        # m{1,2}p2-murmc64-{VIDEO}-{CPU}MHz-F66-{AUDIO}-v{VERSION}[.m{1,2}p2][.uf2]
                         # MOS2 builds rename .uf2 to remove extension
                         if [[ "$MOS2" == "ON" ]]; then
-                            SRC_FILE="$BIN_DIR/${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-${AUDIO}-v${VERSION_DOT}.${MOS2_EXT}"
+                            SRC_FILE="$BIN_DIR/${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-F66-${AUDIO}-v${VERSION_DOT}.${MOS2_EXT}"
                         else
-                            SRC_FILE="$BIN_DIR/${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-${AUDIO}-v${VERSION_DOT}.uf2"
+                            SRC_FILE="$BIN_DIR/${MOS2_EXT}-murmc64-${VIDEO}-${CPU}MHz-F66-${AUDIO}-v${VERSION_DOT}.uf2"
                         fi
 
                         if [[ -f "$SRC_FILE" ]]; then

@@ -61,7 +61,9 @@
 #include "Tape.h"
 #include "Version.h"
 
+#ifndef FRODO_RP2350
 #include <format>
+#endif
 
 
 /*
