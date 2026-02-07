@@ -124,7 +124,9 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                         CMAKE_MOS2_FLAG="-DMOS2=ON"
                     fi
 
-                    cmake .. \
+                    BUILD_LOG="$SCRIPT_DIR/build_${OUTPUT_NAME}.log"
+
+                    if ! cmake .. \
                         -DPICO_PLATFORM=rp2350 \
                         -DBOARD_VARIANT="$BOARD" \
                         -DVIDEO_TYPE="$VIDEO" \
@@ -134,10 +136,16 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                         -DDEBUG_LOGS_ENABLED=OFF \
                         -DFIRMWARE_VERSION="v${VERSION_DOT}" \
                         $CMAKE_MOS2_FLAG \
-                        > /dev/null 2>&1
+                        > "$BUILD_LOG" 2>&1; then
+                        echo "  ✗ CMake configuration failed"
+                        tail -30 "$BUILD_LOG"
+                        FAILED=$((FAILED + 1))
+                        cd "$SCRIPT_DIR"
+                        continue
+                    fi
 
                     # Build
-                    if make -j$(nproc) > /dev/null 2>&1; then
+                    if make -j$(nproc) >> "$BUILD_LOG" 2>&1; then
                         # Output goes to bin/Release/ per CMakeLists.txt
                         BIN_DIR="$SCRIPT_DIR/bin/Release"
 
@@ -148,10 +156,15 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                             echo "  ✓ Success → release/$OUTPUT_NAME"
                         else
                             echo "  ✗ Output file not found: $SRC_FILE"
+                            echo "  Expected: $SRC_FILE"
+                            echo "  Available files:"
+                            ls -la "$BIN_DIR"/ 2>/dev/null | tail -10
                             FAILED=$((FAILED + 1))
                         fi
+                        rm -f "$BUILD_LOG"
                     else
-                        echo "  ✗ Build failed"
+                        echo "  ✗ Build failed — last 40 lines:"
+                        tail -40 "$BUILD_LOG"
                         FAILED=$((FAILED + 1))
                     fi
 
