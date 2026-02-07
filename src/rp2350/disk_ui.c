@@ -324,6 +324,63 @@ void disk_ui_move_down(void) {
     }
 }
 
+void disk_ui_page_up(void)
+{
+    int count = disk_ui_get_count();
+    if (count == 0) return;
+
+    selected_file -= MAX_VISIBLE / 2;
+    if (selected_file < 0)
+        selected_file = 0;
+
+    // если курсор ушёл выше окна — подтянуть окно
+    if (selected_file < scroll_offset)
+        scroll_offset = selected_file;
+}
+
+void disk_ui_page_down(void)
+{
+    int count = disk_ui_get_count();
+    if (count == 0) return;
+
+    selected_file += MAX_VISIBLE / 2;
+    if (selected_file >= count)
+        selected_file = count - 1;
+
+    // если курсор ушёл ниже окна — сдвинуть окно
+    if (selected_file >= scroll_offset + MAX_VISIBLE)
+        scroll_offset = selected_file - MAX_VISIBLE + 1;
+}
+
+void disk_ui_home(void)
+{
+    int count = disk_ui_get_count();
+    if (count == 0) return;
+
+    selected_file = 0;
+
+    // если окно было ниже — подтянуть вверх
+    if (scroll_offset != 0)
+        scroll_offset = 0;
+}
+
+void disk_ui_end(void)
+{
+    int count = disk_ui_get_count();
+    if (count == 0) return;
+
+    selected_file = count - 1;
+
+    // если курсор ниже окна — прокрутить так,
+    // чтобы последний элемент был виден
+    int min_scroll = count - MAX_VISIBLE;
+    if (min_scroll < 0)
+        min_scroll = 0;
+
+    if (scroll_offset != min_scroll)
+        scroll_offset = min_scroll;
+}
+
 int disk_ui_get_selected(void) {
     if (has_parent_dir()) {
         return selected_file - 1;

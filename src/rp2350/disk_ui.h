@@ -49,6 +49,11 @@ void disk_ui_move_up(void);
 // Move selection down
 void disk_ui_move_down(void);
 
+void disk_ui_page_up(void);
+void disk_ui_page_down(void);
+void disk_ui_home(void);
+void disk_ui_end(void);
+
 // Get selected index
 int disk_ui_get_selected(void);
 

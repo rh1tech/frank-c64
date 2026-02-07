@@ -39,6 +39,10 @@ void disk_ui_delete(void);
 bool disk_ui_is_visible(void);
 void disk_ui_move_up(void);
 void disk_ui_move_down(void);
+void disk_ui_page_up(void);
+void disk_ui_page_down(void);
+void disk_ui_home(void);
+void disk_ui_end(void);
 int disk_ui_get_selected(void);
 void disk_ui_select(void);
 int disk_ui_get_state(void);
@@ -306,11 +310,10 @@ static int ascii_to_c64_matrix(unsigned char key) {
         case ',': return MATRIX(5, 7);   // ,
         case '.': return MATRIX(5, 4);   // .
         case '/': return MATRIX(6, 7);   // /
-        case ';': return MATRIX(6, 5);   // ; (PC ' key -> C64 ;)
         case ':': return MATRIX(5, 5);   // : (PC ; key -> C64 :)
-        case '=': return MATRIX(6, 5);   // = (Page Down -> =)
-        case '+': return MATRIX(5, 0);   // + (PC - key -> C64 +)
-        case '-': return MATRIX(5, 3);   // - (PC = key -> C64 -)
+        case ';': return MATRIX(6, 2);   // ;
+        case '+': return MATRIX(5, 3);   // + (PC - key -> C64 +)
+        case '-': return MATRIX(5, 0);   // - (PC = key -> C64 -)
         case '*': return MATRIX(6, 1);   // * (PC ] key -> C64 *)
         case '@': return MATRIX(5, 6);   // @ (PC [ key -> C64 @)
 
@@ -326,6 +329,7 @@ static int ascii_to_c64_matrix(unsigned char key) {
         case 0xE3: return MATRIX(0, 0) | 0x100;  // Insert -> Shift+INS/DEL
         case 0xE4: return MATRIX(6, 3);  // Home -> CLR/HOME
         case 0xE5: return MATRIX(6, 0);  // End -> £ (pound)
+        case 0xE6: return MATRIX(6, 5);  // "\" -> "=""
 
         // Arrow keys (directly mapped for cursor control)
         // Note: These are filtered when joystick mode is active
@@ -618,6 +622,14 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
                         disk_ui_hide();
                     } else if (key == 'D') {
                         disk_ui_delete();
+                    } else if (key == 0xE4) {  // Home
+                        disk_ui_home();
+                    } else if (key == 0xE5) {  // End
+                        disk_ui_end();
+                    } else if (key == 0xE2) {  // PageUp
+                        disk_ui_page_up();
+                    } else if (key == 0xE6) {  // PageDown
+                        disk_ui_page_down();
                     }
                 } else if (state == DISK_UI_SELECT_ACTION) {
                     // Action selection mode
@@ -704,9 +716,11 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
         input_state.rev_matrix[5] |= 0x80;
     }
 
-    // Ctrl+Alt+Delete triggers C64 reset
+#endif
+
+// Ctrl+Alt+Delete triggers C64 reset
     static bool reset_combo_was_active = false;
-    if (ps2kbd_is_reset_combo()) {
+    if (ps2kbd_is_reset_combo() || usbhid_wrapper_is_reset_combo()) {
         if (!reset_combo_was_active) {
             MII_DEBUG_PRINTF("Ctrl+Alt+Del: C64 Reset\n");
             c64_unmount_disk();
@@ -717,7 +731,6 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
     } else {
         reset_combo_was_active = false;
     }
-#endif
 
 #ifdef USB_HID_ENABLED
     // Process USB HID
@@ -787,6 +800,16 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
                         disk_ui_select();
                     } else if (usb_key == 0x1B) {  // Escape - close UI
                         disk_ui_hide();
+                    } else if (key == 'D') {
+                        disk_ui_delete();
+                    } else if (key == 0xE4) {  // Home
+                        disk_ui_home();
+                    } else if (key == 0xE5) {  // End
+                        disk_ui_end();
+                    } else if (key == 0xE2) {  // PageUp
+                        disk_ui_page_up();
+                    } else if (key == 0xE6) {  // PageDown
+                        disk_ui_page_down();
                     }
                 } else if (state == DISK_UI_SELECT_ACTION) {
                     // Action selection mode

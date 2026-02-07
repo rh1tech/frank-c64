@@ -20,71 +20,71 @@ static uint8_t current_modifiers = 0;
 static uint8_t current_arrow_state = 0;  // bits: 0=right, 1=left, 2=down, 3=up
 
 //--------------------------------------------------------------------
-// HID Keycode to Apple II ASCII Mapping
-// Returns the Apple II ASCII character for a given HID keycode
+// HID Keycode to C64 key mapping (same conventions as ps2kbd_wrapper.cpp)
+// Returns ASCII character or special C64 code.
 // Special return values:
-//   0xFB = F11 key (disk selector toggle)
-//   0    = Ignored key
+//   0xF1-0xFC = F1-F12 (F11=0xFB, F12=0xFC)
+//   0xE0-0xEF = Special C64 keys (left arrow, up arrow, shift lock, clr/home, pound, etc.)
+//   0         = Ignored key
 //--------------------------------------------------------------------
-
-static unsigned char hid_to_apple2(uint8_t hid_keycode, uint8_t modifiers) {
-    bool shift = (modifiers & 0x22) != 0;  // L/R Shift
-    bool ctrl = (modifiers & 0x11) != 0;   // L/R Ctrl
-    
-    // Track Delete key state for reset combo
-    if (hid_keycode == 0x4C) {
-        return 0;  // Delete key doesn't produce a character
-    }
-    
+static unsigned char hid_to_c64(uint8_t hid_keycode, uint8_t modifiers) {
+  
     // Function keys - F11 toggles disk selector
     if (hid_keycode >= 0x3A && hid_keycode <= 0x45) {
         return 0xF1 + (hid_keycode - 0x3A);  // F1=0xF1, ... F11=0xFB, F12=0xFC
     }
     
-    // Letters A-Z - Apple II Monitor expects uppercase
+    // Letters A-Z - uppercase (C64 native)
     if (hid_keycode >= 0x04 && hid_keycode <= 0x1D) {
-        char c = 'A' + (hid_keycode - 0x04);
-        if (ctrl) {
-            return c - 'A' + 1;  // Control characters
-        }
-        return c;  // Always uppercase for Apple II compatibility
+        return 'A' + (hid_keycode - 0x04);
     }
     
-    // Numbers 1-9, 0
+    // Numbers 1-9, 0 (no shift handling here)
     if (hid_keycode >= 0x1E && hid_keycode <= 0x27) {
         static const char num_chars[] = "1234567890";
-        static const char shift_chars[] = "!@#$%^&*()";
         int idx = (hid_keycode == 0x27) ? 9 : (hid_keycode - 0x1E);
-        return shift ? shift_chars[idx] : num_chars[idx];
+        return num_chars[idx];
     }
     
     // Special keys
     switch (hid_keycode) {
-        case 0x28: return 0x0D;  // Enter
-        case 0x29: return 0x1B;  // Escape
-        case 0x2A: return 0x08;  // Backspace (left delete on Apple II)
-        case 0x2B: return 0x09;  // Tab
+        case 0x28: return 0x0D;  // Enter -> RETURN
+        case 0x29: return 0x1B;  // Escape -> RUN/STOP
+        case 0x2A: return 0x08;  // Backspace -> INS/DEL
+        case 0x2B: return 0x09;  // Tab -> CTRL
         case 0x2C: return ' ';   // Space
-        
-        // Punctuation
-        case 0x2D: return shift ? '_' : '-';
-        case 0x2E: return shift ? '+' : '=';
-        case 0x2F: return shift ? '{' : '[';
-        case 0x30: return shift ? '}' : ']';
-        case 0x31: return shift ? '|' : '\\';
-        case 0x33: return shift ? ':' : ';';
-        case 0x34: return shift ? '"' : '\'';
-        case 0x35: return shift ? '~' : '`';
-        case 0x36: return shift ? '<' : ',';
-        case 0x37: return shift ? '>' : '.';
-        case 0x38: return shift ? '?' : '/';
-        
-        // Arrow keys (Apple II control codes)
+        case 0x39: return 0xE1;  // Caps Lock -> SHIFT LOCK (special code)
+
+        // VICE positional punctuation mapping (match ps2 wrapper)
+        case 0x2D: return '+';   // - key -> + (C64 plus)
+        case 0x2E: return '-';   // = key -> - (C64 minus)
+        case 0x2F: return '@';   // [ key -> @
+        case 0x30: return '*';   // ] key -> *
+        case 0x31: return 0xE6;   // \ key -> C64 = (special code)
+        case 0x64: return 0xE6;  // Non-US \ key -> C64 '=' 
+        case 0x32: return 0xE6;  // \ key -> C64 = (special code)
+//        case 0x31: return 0xE2;  // \ key -> ^ (C64 up arrow, special code)
+        case 0x33: return ':';   // ; key -> : (C64 colon)
+        case 0x34: return ';';   // ' key -> ; (C64 semicolon)
+        case 0x35: return 0xE0;  // ` key -> <- (C64 left arrow, special code)
+        case 0x36: return ',';   // ,
+        case 0x37: return '.';   // .
+        case 0x38: return '/';   // /
+
+        // Arrow keys (direct)
         case 0x4F: return 0x15;  // Right arrow (CTRL+U)
-        case 0x50: return 0x08;  // Left arrow (Backspace)
+        case 0x50: return 0x08;  // Left arrow (same as INS/DEL in this mapping)
         case 0x51: return 0x0A;  // Down arrow (CTRL+J, line feed)
         case 0x52: return 0x0B;  // Up arrow (CTRL+K)
-        
+
+        // Extended keys
+        case 0x49: return 0xE3;  // Insert -> Shift+INS/DEL (special code)
+        case 0x4C: return 0x08;  // Delete -> INS/DEL
+        case 0x4A: return 0xE4;  // Home -> CLR/HOME (special code)
+        case 0x4D: return 0xE5;  // End -> £ (pound, special code)
+        case 0x4B: return 0xE2;  // Page Up -> ^ (up arrow)
+        case 0x4E: return 0xE6;  // Page Down -> = (equals)
+
         default: return 0;  // Unknown key
     }
 }
@@ -151,10 +151,10 @@ int usbhid_wrapper_get_key(int *pressed, unsigned char *key) {
         usbhid_keyboard_state_t kbd_state;
         usbhid_get_keyboard_state(&kbd_state);
         
-        unsigned char apple2_key = hid_to_apple2(hid_keycode, kbd_state.modifier);
-        if (apple2_key != 0) {
+        unsigned char c64_key = hid_to_c64(hid_keycode, kbd_state.modifier);
+        if (c64_key != 0) {
             *pressed = down;
-            *key = apple2_key;
+            *key = c64_key;
             return 1;
         }
     }

@@ -69,7 +69,10 @@ static unsigned char hid_to_c64(uint8_t code, uint8_t modifiers) {
         case 0x2E: return '-';   // = key -> - (C64 minus)
         case 0x2F: return '@';   // [ key -> @
         case 0x30: return '*';   // ] key -> *
-        case 0x31: return 0xE2;  // \ key -> ^ (C64 up arrow, special code)
+        case 0x31: return 0xE6;  // \ key -> C64 = (special code)
+        case 0x64: return 0xE6;  // Non-US \ key -> C64 '=' 
+        case 0x32: return 0xE6;  // \ key -> C64 = (special code)
+//        case 0x31: return 0xE2;  // \ key -> ^ (C64 up arrow, special code)
         case 0x33: return ':';   // ; key -> : (C64 colon)
         case 0x34: return ';';   // ' key -> ; (C64 semicolon)
         case 0x35: return 0xE0;  // ` key -> <- (C64 left arrow, special code)
@@ -89,7 +92,7 @@ static unsigned char hid_to_c64(uint8_t code, uint8_t modifiers) {
         case 0x4A: return 0xE4;  // Home -> CLR/HOME (special code)
         case 0x4D: return 0xE5;  // End -> £ (pound, special code)
         case 0x4B: return 0xE2;  // Page Up -> ^ (up arrow)
-        case 0x4E: return '=';   // Page Down -> = (equals)
+        case 0x4E: return 0xE6;  // Page Down -> = (equals)
 
         default: return 0;
     }
