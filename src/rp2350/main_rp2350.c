@@ -103,14 +103,14 @@ static uint8_t *g_back_buffer = g_framebuffer_b;
 // Core 1: Video Rendering Task
 //=============================================================================
 
+#ifdef VIDEO_HDMI
 static void core1_video_task(void) {
     MII_DEBUG_PRINTF("Core 1: Starting video task\n");
+    multicore_lockout_victim_init();
 
     // Initialize HDMI IRQ handler on this core
     MII_DEBUG_PRINTF("Core 1: Calling graphics_init_irq_on_this_core()...\n");
-    #ifdef VIDEO_HDMI
-        graphics_init_irq_on_this_core();
-    #endif
+    graphics_init_irq_on_this_core();
     MII_DEBUG_PRINTF("Core 1: IRQ initialized\n");
 
     uint32_t last_frame_count = 0;
@@ -147,6 +147,7 @@ static void core1_video_task(void) {
 
     MII_DEBUG_PRINTF("Core 1: Video task ending\n");
 }
+#endif
 
 //=============================================================================
 // System Initialization
@@ -591,10 +592,12 @@ int main(void) {
     // Set C64 color palette
     init_c64_palette();
 
+#ifdef VIDEO_HDMI
     // Launch Core 1 for video rendering (needed for HDMI output)
     MII_DEBUG_PRINTF("Launching Core 1...\n");
     multicore_launch_core1(core1_video_task);
     sleep_ms(100);  // Let Core 1 initialize HDMI IRQ
+#endif
 
     // Initialize framebuffer pointers for double buffering (needed by startscreen)
     framebuffers[0] = g_framebuffer_a;

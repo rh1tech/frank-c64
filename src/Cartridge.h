@@ -76,13 +76,21 @@ public:
 	ROMCartridge(unsigned num_banks, unsigned bank_size);
 	~ROMCartridge();
 
-	uint8_t * ROM() const { return rom; }
+#ifdef PSRAM_MAX_FREQ_MHZ
+	uint8_t* ROM() const { return rom; }
+#else
+	const uint8_t* ROM() const { return rom; }
+#endif
 
 	const unsigned numBanks;
 	const unsigned bankSize;
 
 protected:
+#ifdef PSRAM_MAX_FREQ_MHZ
 	uint8_t * rom = nullptr;	// Pointer to ROM contents
+#else
+	const uint8_t * rom = nullptr;
+#endif
 };
 
 

@@ -37,7 +37,7 @@ void graphics_request_buffer_swap(uint8_t *buffer) {
     graphics_pending_buffer = buffer;
 }
 
-uint32_t get_frame_count(void) {
+uint32_t __not_in_flash() get_frame_count(void) {
     return graphics_frame_count;
 }
 
@@ -142,7 +142,7 @@ static inline bool hdmi_init(void);
 
 // Check if HDMI DMA has stalled and restart if needed.
 // Call this periodically during long operations to maintain HDMI signal.
-bool hdmi_check_and_restart(void) {
+bool __not_in_flash() hdmi_check_and_restart(void) {
     static uint32_t last_check_time = 0;
     uint32_t now = time_us_32();
     

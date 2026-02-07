@@ -63,7 +63,7 @@ static uint16_t* txt_palette_fast = NULL;
 
 static volatile uint32_t graphics_frame_count = 0;
 
-uint32_t get_frame_count(void) {
+uint32_t __not_in_flash() get_frame_count(void) {
     return graphics_frame_count;
 }
 

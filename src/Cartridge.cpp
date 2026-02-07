@@ -21,12 +21,72 @@
 #include "sysdeps.h"
 
 #include "Cartridge.h"
+#include <hardware/flash.h>
+#include <pico/multicore.h>
 
 #ifndef FRODO_RP2350
 #include <filesystem>
 namespace fs = std::filesystem;
 #endif
 
+#ifndef PSRAM_MAX_FREQ_MHZ
+static uint8_t small_buffer[0x4000] __aligned(4096);
+static uint32_t requested_size = 0;
+// put it with 1MB offset (the firmaware is less than 400 kB, so more than 3 MB may be reused)
+#define CARTRIDGE_BASE (1ul << 20)
+#define CARTRIDGE_ADDR ((uint8_t*)(XIP_BASE + CARTRIDGE_BASE))
+
+void __not_in_flash_func(flash_block)(uint8_t* buffer, size_t flash_target_offset) {
+    uint8_t *e = CARTRIDGE_ADDR + flash_target_offset;
+    for (uint32_t i = 0; i < FLASH_SECTOR_SIZE; ++i) {
+        if (e[i] != buffer[i]) {
+            e = 0;
+            break;
+        }
+    }
+    if (e) { // the block is already eq.s to flash state
+        return;
+    }
+	flash_target_offset += CARTRIDGE_BASE;
+    gpio_put(PICO_DEFAULT_LED_PIN, true);
+#ifdef VIDEO_HDMI
+    multicore_lockout_start_blocking();
+#endif
+    const uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(flash_target_offset, FLASH_SECTOR_SIZE);
+    flash_range_program(flash_target_offset, buffer, FLASH_SECTOR_SIZE);
+    restore_interrupts(ints);
+#ifdef VIDEO_HDMI
+    multicore_lockout_end_blocking();
+#endif
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
+}
+
+static void easyflash_write(uint32_t flash_offset,
+                            const uint8_t *src,
+                            uint32_t size)
+{
+    while (size) {
+        uint32_t sector_base = flash_offset & ~(FLASH_SECTOR_SIZE - 1);
+        uint32_t sector_off  = flash_offset &  (FLASH_SECTOR_SIZE - 1);
+        uint32_t chunk = FLASH_SECTOR_SIZE - sector_off;
+        if (chunk > size)
+            chunk = size;
+        // read-back sector
+        memcpy(small_buffer,
+               CARTRIDGE_ADDR + sector_base,
+               FLASH_SECTOR_SIZE);
+        // patch
+        memcpy(small_buffer + sector_off, src, chunk);
+        // write-back
+        flash_block(small_buffer, sector_base);
+        flash_offset += chunk;
+        src          += chunk;
+        size         -= chunk;
+    }
+}
+
+#endif
 
 // Base class for cartridge with ROM
 ROMCartridge::ROMCartridge(unsigned num_banks, unsigned bank_size) : numBanks(num_banks), bankSize(bank_size)
@@ -34,10 +94,16 @@ ROMCartridge::ROMCartridge(unsigned num_banks, unsigned bank_size) : numBanks(nu
 	// Allocate ROM
 #ifdef PSRAM_MAX_FREQ_MHZ
 	rom = (uint8_t*)psram_malloc(num_banks * bank_size);
-#else
-	rom = (uint8_t*)malloc(num_banks * bank_size);
-#endif
 	memset(rom, 0xff, num_banks * bank_size);
+#else
+	requested_size = num_banks * bank_size;
+	if (requested_size <= sizeof(small_buffer)) {
+		rom = small_buffer;
+		memset(small_buffer, 0xff,  requested_size);
+	} else {
+		rom = CARTRIDGE_ADDR;
+	}
+#endif
 }
 
 ROMCartridge::~ROMCartridge()
@@ -45,8 +111,6 @@ ROMCartridge::~ROMCartridge()
 	// Free ROM
 #ifdef PSRAM_MAX_FREQ_MHZ
 	psram_free(rom);
-#else
-	free(rom);
 #endif
 }
 
@@ -366,16 +430,17 @@ CartridgeEasyFlash::CartridgeEasyFlash()
 #ifdef PSRAM_MAX_FREQ_MHZ
 	roml = (uint8_t *)psram_malloc(NUM_BANKS * BANK_SIZE);
 	romh = (uint8_t *)psram_malloc(NUM_BANKS * BANK_SIZE);
+	memset(roml, 0xff, NUM_BANKS * BANK_SIZE);
+	memset(romh, 0xff, NUM_BANKS * BANK_SIZE);
 #else
-	roml = (uint8_t *)malloc(NUM_BANKS * BANK_SIZE);
-	romh = (uint8_t *)malloc(NUM_BANKS * BANK_SIZE);
+	// no cases to fit small_buffer, use small_buffer only as write-back cache
+	roml = CARTRIDGE_ADDR;
+	romh = CARTRIDGE_ADDR + (NUM_BANKS * BANK_SIZE);
 #endif
 #else
 	roml = new uint8_t[NUM_BANKS * BANK_SIZE];
 	romh = new uint8_t[NUM_BANKS * BANK_SIZE];
 #endif
-	memset(roml, 0xff, NUM_BANKS * BANK_SIZE);
-	memset(romh, 0xff, NUM_BANKS * BANK_SIZE);
 	memset(ram, 0xff, sizeof(ram));
 
 	// Boot jumper in "Boot" position (directly start cartridge)
@@ -392,10 +457,8 @@ CartridgeEasyFlash::~CartridgeEasyFlash()
 #ifdef PSRAM_MAX_FREQ_MHZ
 	psram_free(roml);
 	psram_free(romh);
-#else
-	free(roml);
-	free(romh);
 #endif
+#else
 	delete[] roml;
 	delete[] romh;
 #endif
@@ -688,11 +751,25 @@ Cartridge * Cartridge::FromFile(const std::string & path, std::string & ret_erro
 						delete ef;
 						goto error_unsupp;
 					}
+#ifndef PSRAM_MAX_FREQ_MHZ
+					uint32_t flash_off;
+					if (chip_start == 0x8000) {
+						flash_off = (dest - CARTRIDGE_ADDR);
+					} else {
+						flash_off = (dest - CARTRIDGE_ADDR);
+					}
+					if (fread(small_buffer, chip_size, 1, f) != 1) {
+						delete ef;
+						goto error_read;
+					}
+					easyflash_write(flash_off, small_buffer, chip_size);
+#else
 
 					if (fread(dest, chip_size, 1, f) != 1) {
 						delete ef;
 						goto error_read;
 					}
+#endif
 				}
 
 				fclose(f);
@@ -728,11 +805,37 @@ Cartridge * Cartridge::FromFile(const std::string & path, std::string & ret_erro
 			} else if (type == 18 && chip_start == 0xa000) {	// Special mapping for Zaxxon
 				offset += 0x2000;
 			}
-
+#ifdef PSRAM_MAX_FREQ_MHZ
 			if (fread(cart->ROM() + offset, chip_size, 1, f) != 1)
 				goto error_read;
-		}
+#else
+			if (requested_size <= sizeof(small_buffer)) {
+				// small cartridge: load fully into RAM buffer
+				if (fread((uint8_t*)cart->ROM() + offset, chip_size, 1, f) != 1)
+					goto error_read;
+			} else {
+                // large cartridge: stream into flash via small_buffer
+                uint32_t remaining = chip_size;
+                uint32_t flash_off = offset;
+                while (remaining) {
+                    // we must program full FLASH_SECTOR_SIZE blocks
+                    uint32_t to_read = remaining;
+                    if (to_read > FLASH_SECTOR_SIZE)
+                        to_read = FLASH_SECTOR_SIZE;
+                    // fill buffer with erased flash value
+                    memset(small_buffer, 0xff, FLASH_SECTOR_SIZE);
+                    // read actual data
+                    if (fread(small_buffer, to_read, 1, f) != 1)
+                        goto error_read;
 
+                    // write to flash
+                    flash_block(small_buffer, flash_off);
+                    flash_off += FLASH_SECTOR_SIZE;
+                    remaining -= to_read;
+                }
+			}
+#endif
+		}
 		fclose(f);
 	}
 	return cart;

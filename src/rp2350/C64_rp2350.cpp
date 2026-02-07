@@ -254,12 +254,12 @@ void C64::patch_roms(bool fast_reset, bool emul_1541_proc)
                 sizeof(drive_patch_1), drive_patch_1);
     apply_patch(true, ROM1541, BuiltinDriveROM, 0x2c9b,
                 sizeof(drive_patch_2), drive_patch_2);
-*/
     FIL f;
     f_open(&f, "/c64_fast_reset.rom", FA_CREATE_ALWAYS | FA_WRITE);
     UINT bw;
     f_write(&f, Kernal, KERNAL_ROM_SIZE, &bw);
     f_close(&f);
+*/
 }
 
 

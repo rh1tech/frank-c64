@@ -27,7 +27,7 @@ set(PICO_BOARD pico2 CACHE STRING "Pico board type")
 set(BOARD_VARIANT "M2" CACHE STRING "Board variant: M1, M2 or PC")
 
 # Video output type (VGA or HDMI)
-set(VIDEO_TYPE "VGA" CACHE STRING "Video output: VGA or HDMI")
+set(VIDEO_TYPE "HDMI" CACHE STRING "Video output: VGA or HDMI")
 
 # Audio output configuration (I2S or PWM)
 set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
@@ -36,7 +36,7 @@ set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
 option(MOS2 "MOS2 support" OFF)
 
 # CPU overclock configuration (252, 378, 428(VGA), 504 MHz)
-set(CPU_SPEED "504" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
+set(CPU_SPEED "252" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
 
 # PSRAM speed configuration (84, 100, 133, 166 MHz target)
 #set(PSRAM_SPEED "166" CACHE STRING "PSRAM max frequency in MHz: 84, 100, 133, 166")
