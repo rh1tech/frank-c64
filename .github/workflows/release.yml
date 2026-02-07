@@ -1,0 +1,97 @@
+name: Release Build
+
+on:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Only run when commit message starts with "release:"
+    if: startsWith(github.event.head_commit.message, 'release:')
+    runs-on: [self-hosted, rp2350]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Parse version from commit message
+        id: version
+        run: |
+          # Extract version from commit message: "release: 1.04" or "release:1.04"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+
+          # Extract version number after "release:" (handles optional space)
+          VERSION=$(echo "$COMMIT_MSG" | head -1 | sed -n 's/^release:[[:space:]]*\([0-9]*\.[0-9]*\).*/\1/p')
+
+          if [[ -z "$VERSION" ]]; then
+            echo "Error: Could not parse version from commit message."
+            echo "Expected format: 'release: X.YY' (e.g., 'release: 1.04')"
+            exit 1
+          fi
+
+          MAJOR="${VERSION%%.*}"
+          MINOR="${VERSION##*.}"
+
+          # Remove leading zeros for arithmetic
+          MINOR=$((10#$MINOR))
+          MAJOR=$((10#$MAJOR))
+
+          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+          echo "version_dot=${MAJOR}.$(printf '%02d' $MINOR)" >> "$GITHUB_OUTPUT"
+          echo "version_tag=v${MAJOR}.$(printf '%02d' $MINOR)" >> "$GITHUB_OUTPUT"
+
+          echo "Parsed version: ${MAJOR}.$(printf '%02d' $MINOR)"
+
+      - name: Build all release variants
+        run: |
+          chmod +x release-ci.sh
+          ./release-ci.sh ${{ steps.version.outputs.major }} ${{ steps.version.outputs.minor }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version_tag }}
+          name: "MurmC64 ${{ steps.version.outputs.version_dot }}"
+          body: |
+            ## MurmC64 ${{ steps.version.outputs.version_dot }}
+
+            Commodore 64 emulator for RP2350 (Frodo4-based)
+
+            ### Firmware files
+
+            **Standard UF2 (drag & drop to Pico 2):**
+            | File | Board | Video | Audio | CPU |
+            |------|-------|-------|-------|-----|
+            | `murmc64_m1_vga_*_378mhz_*.uf2` | M1 | VGA | I2S/PWM | 378 MHz |
+            | `murmc64_m1_vga_*_428mhz_*.uf2` | M1 | VGA | I2S/PWM | 428 MHz |
+            | `murmc64_m1_vga_*_504mhz_*.uf2` | M1 | VGA | I2S/PWM | 504 MHz |
+            | `murmc64_m1_hdmi_*_378mhz_*.uf2` | M1 | HDMI | I2S/PWM | 378 MHz |
+            | `murmc64_m1_hdmi_*_504mhz_*.uf2` | M1 | HDMI | I2S/PWM | 504 MHz |
+            | `murmc64_m2_*` | M2 | same matrix | | |
+
+            **Murmulator OS 2:**
+            | File | Board |
+            |------|-------|
+            | `murmc64_m1_*.m1p2` | M1 |
+            | `murmc64_m2_*.m2p2` | M2 |
+
+            ### How to flash
+            1. Hold BOOTSEL on your Pico 2 and plug in USB
+            2. Drag the `.uf2` file matching your board/video/audio to the RPI-RP2 drive
+          files: |
+            release/*.uf2
+            release/*.m1p2
+            release/*.m2p2
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
