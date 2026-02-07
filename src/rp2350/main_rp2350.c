@@ -581,9 +581,10 @@ int main(void) {
     // Initialize stdio for debug output
     init_stdio();
 
+#ifdef PSRAM_MAX_FREQ_MHZ
     // Initialize PSRAM
     init_psram();
-
+#endif
     // Initialize graphics (HDMI)
     init_graphics();
 
@@ -601,17 +602,26 @@ int main(void) {
 
     // Show start screen with system information
     {
-        uint8_t board_num = 1;  // Default to M1
-#ifdef BOARD_M2
-        board_num = 2;
-#endif
         startscreen_info_t screen_info = {
             .title = "MurmC64",
             .subtitle = "Commodore 64 Emulator",
             .version = FIRMWARE_VERSION,
+#ifdef BOARD_M1
+            .board_variant = "M1",
+#endif
+#ifdef BOARD_M2
+            .board_variant = "M2",
+#endif
+#ifdef BOARD_PC
+            .board_variant = "PICO PC",
+#endif
+#ifdef BOARD_Z0
+            .board_variant = "PiZero",
+#endif
             .cpu_mhz = CPU_CLOCK_MHZ,
+#ifdef PSRAM_MAX_FREQ_MHZ
             .psram_mhz = PSRAM_MAX_FREQ_MHZ,
-            .board_variant = board_num,
+#endif
         };
         startscreen_show(&screen_info);
     }

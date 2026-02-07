@@ -52,7 +52,7 @@ struct MOS6569State;
 // 6569 emulation (VIC)
 class MOS6569 {
 public:
-	MOS6569(C64 *c64, Display *disp, MOS6510 *CPU, uint8_t *RAM, uint8_t *Char, uint8_t *Color);
+	MOS6569(C64 *c64, Display *disp, MOS6510 *CPU, uint8_t *RAM, const uint8_t *Char, uint8_t *Color);
 
 	uint8_t ReadRegister(uint16_t adr);
 	void WriteRegister(uint16_t adr, uint8_t byte);
@@ -92,7 +92,9 @@ private:
 	uint8_t ec, b0c, b1c, b2c, b3c, mm0, mm1;
 	uint8_t sc[8];
 
-	uint8_t *ram, *char_rom, *color_ram; // Pointers to RAM and ROM
+	uint8_t *ram;
+	const uint8_t *char_rom;
+	uint8_t *color_ram; // Pointers to RAM and ROM
 	C64 *the_c64;					// Pointer to C64 object
 	Display *the_display;			// Pointer to Display object
 	MOS6510 *the_cpu;				// Pointer to 6510 object
@@ -197,13 +199,13 @@ private:
 	};
 	SprLatch spr_latch[8];			// Latched sprite data for drawing
 #else
-	uint8_t *get_physical(uint16_t adr);
+	const uint8_t *get_physical(uint16_t adr);
 	void make_mc_table();
-	void el_std_text(uint8_t *p, uint8_t *q, uint8_t *r);
-	void el_mc_text(uint8_t *p, uint8_t *q, uint8_t *r);
-	void el_std_bitmap(uint8_t *p, uint8_t *q, uint8_t *r);
-	void el_mc_bitmap(uint8_t *p, uint8_t *q, uint8_t *r);
-	void el_ecm_text(uint8_t *p, uint8_t *q, uint8_t *r);
+	void el_std_text(uint8_t *p, const uint8_t *q, uint8_t *r);
+	void el_mc_text(uint8_t *p, const uint8_t *q, uint8_t *r);
+	void el_std_bitmap(uint8_t *p, const uint8_t *q, uint8_t *r);
+	void el_mc_bitmap(uint8_t *p, const uint8_t *q, uint8_t *r);
+	void el_ecm_text(uint8_t *p, const uint8_t *q, uint8_t *r);
 	void el_std_idle(uint8_t *p, uint8_t *r);
 	void el_mc_idle(uint8_t *p, uint8_t *r);
 	void el_sprites(uint8_t *chunky_ptr);
@@ -223,9 +225,9 @@ private:
 	bool border_40_col;				// Flag: 40 column border
 	uint8_t sprite_on;				// 8 flags: Sprite display/DMA active
 
-	uint8_t *matrix_base;			// Video matrix base
-	uint8_t *char_base;				// Character generator base
-	uint8_t *bitmap_base;			// Bitmap base
+	const uint8_t *matrix_base;			// Video matrix base
+	const uint8_t *char_base;				// Character generator base
+	const uint8_t *bitmap_base;			// Bitmap base
 #endif
 };
 

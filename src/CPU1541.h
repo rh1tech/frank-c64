@@ -47,7 +47,7 @@ struct MOS6502State;
 // 6502 emulation (1541)
 class MOS6502_1541 {
 public:
-	MOS6502_1541(C64 * c64, GCRDisk * gcr, uint8_t * Ram, uint8_t * Rom);
+	MOS6502_1541(C64 * c64, GCRDisk * gcr, uint8_t * Ram, const uint8_t * Rom);
 	~MOS6502_1541();
 
 #ifdef FRODO_SC
@@ -107,7 +107,7 @@ private:
 	void do_sbc(uint8_t byte);
 
 	uint8_t * ram;			// Pointer to main RAM
-	uint8_t * rom;			// Pointer to ROM
+	const uint8_t * rom;	// Pointer to ROM
 	C64 * the_c64;			// Pointer to C64 object
 	GCRDisk * the_gcr_disk;	// Pointer to GCR disk object
 

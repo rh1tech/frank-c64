@@ -19,9 +19,11 @@ typedef struct {
     const char *title;
     const char *subtitle;
     const char *version;
+    const char* board_variant;
     uint32_t cpu_mhz;
+#ifdef PSRAM_MAX_FREQ_MHZ
     uint32_t psram_mhz;
-    uint8_t board_variant;
+#endif
 } startscreen_info_t;
 
 /**

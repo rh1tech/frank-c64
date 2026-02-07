@@ -21,8 +21,9 @@
 // ROM declarations (defined in ROM_data.cpp)
 // Uses sizes from board_config.h
 extern const uint8_t BuiltinBasicROM[BASIC_ROM_SIZE];
-extern const uint8_t BuiltinKernalROM[KERNAL_ROM_SIZE];
 extern const uint8_t BuiltinCharROM[CHAR_ROM_SIZE];
-extern const uint8_t BuiltinDriveROM[DRIVE_ROM_SIZE];
+
+#include "c64_1541.rom.h"
+#include "c64_fast_reset.rom.h"
 
 #endif // ROM_DATA_H

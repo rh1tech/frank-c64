@@ -139,13 +139,13 @@ public:
 	void ShowNotification(std::string s);
 
 	uint8_t * RAM;				// C64 memories
-	uint8_t * Basic;
-	uint8_t * Kernal;
-	uint8_t * Char;
+	const uint8_t * Basic;
+	const uint8_t * Kernal;
+	const uint8_t * Char;
 	uint8_t * Color;
 
 	uint8_t * RAM1541;			// 1541 memories
-	uint8_t * ROM1541;
+	const uint8_t * ROM1541;
 
 	Display * TheDisplay;		// Display object
 
@@ -178,7 +178,7 @@ private:
 	void pause();
 	void resume();
 
-	void patch_roms(bool fast_reset, bool emul_1541_proc, bool auto_start);
+	void patch_roms(bool fast_reset, bool emul_1541_proc);
 
 	void write_to_screen(const char * str);
 	void set_keyboard_buffer(const char * str);

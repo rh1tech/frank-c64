@@ -33,9 +33,7 @@ bool disk_ui_is_visible(void);
 void disk_ui_render(uint8_t *framebuffer);
 }
 
-#include "psram_allocator.h"
 #include <cstring>
-
 
 // C64 Pepto color palette (same as murmc64)
 static const uint32_t pepto_palette[16] = {
@@ -85,8 +83,8 @@ static const uint32_t colodore_palette[16] = {
 Display::Display(C64 * c64)
     : the_c64(c64), next_note(0), num_locked(false)
 {
-    // Allocate VIC pixel buffer in PSRAM (384 x 272 = 104448 bytes)
-    vic_pixels = (uint8_t *)psram_malloc(DISPLAY_X * DISPLAY_Y);
+    // Allocate VIC pixel buffer in SRAM (384 x 272 = 104448 bytes)
+    vic_pixels = (uint8_t*)malloc(DISPLAY_X * DISPLAY_Y);
     if (!vic_pixels) {
         MII_DEBUG_PRINTF("ERROR: Failed to allocate VIC pixel buffer\n");
         // Fall back to a smaller buffer if PSRAM fails
@@ -121,7 +119,7 @@ Display::Display(C64 * c64)
 Display::~Display()
 {
     if (vic_pixels) {
-        psram_free(vic_pixels);
+        free(vic_pixels);
         vic_pixels = nullptr;
     }
 }

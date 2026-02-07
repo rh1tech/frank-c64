@@ -24,13 +24,13 @@ set(FIRMWARE_VERSION "v1.03" CACHE STRING "Firmware version string")
 set(PICO_BOARD pico2 CACHE STRING "Pico board type")
 
 # Board configuration variant (M1, M2, PC or Z0)
-set(BOARD_VARIANT "M1" CACHE STRING "Board variant: M1, M2 or PC")
+set(BOARD_VARIANT "M2" CACHE STRING "Board variant: M1, M2 or PC")
 
 # Video output type (VGA or HDMI)
-set(VIDEO_TYPE "HDMI" CACHE STRING "Video output: VGA or HDMI")
+set(VIDEO_TYPE "VGA" CACHE STRING "Video output: VGA or HDMI")
 
 # Audio output configuration (I2S or PWM)
-set(AUDIO_TYPE "I2S" CACHE STRING "Audio output: I2S or PWM")
+set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
 
 # MOS2 support (generate .m1p2 or .m2p2 for Murmulator OS instead of .uf2)
 option(MOS2 "MOS2 support" OFF)
@@ -39,7 +39,7 @@ option(MOS2 "MOS2 support" OFF)
 set(CPU_SPEED "504" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
 
 # PSRAM speed configuration (84, 100, 133, 166 MHz target)
-set(PSRAM_SPEED "166" CACHE STRING "PSRAM max frequency in MHz: 84, 100, 133, 166")
+#set(PSRAM_SPEED "166" CACHE STRING "PSRAM max frequency in MHz: 84, 100, 133, 166")
 set(FLASH_MAX_FREQ_MHZ "66")
 
 if(VIDEO_TYPE STREQUAL "HDMI")
@@ -65,7 +65,11 @@ IF(VIDEO_HDMI)
     SET(BUILD_NAME "${BUILD_NAME}-HDMI")
 endif ()
 
-SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-P${PSRAM_SPEED}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+if (PSRAM_SPEED)
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-P${PSRAM_SPEED}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+else()
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+endif()
 
 # CPU voltage selection based on speed
 if(CPU_SPEED GREATER_EQUAL 504)
@@ -113,7 +117,11 @@ option(UART_ENABLED "Enable USB HID Host for keyboard/gamepad" OFF)
 option(FRODO_LITE "Use Frodo Lite (line-based emulation)" ON)
 
 message(STATUS "MurmC64 - Commodore 64 Emulator (Frodo4) for RP2350")
-message(STATUS "Board: ${BOARD_VARIANT}, CPU: ${CPU_SPEED} MHz, PSRAM: ${PSRAM_SPEED} MHz, Voltage: ${CPU_VOLTAGE}")
+if (PSRAM_SPEED)
+    message(STATUS "Board: ${BOARD_VARIANT}, CPU: ${CPU_SPEED} MHz, PSRAM: ${PSRAM_SPEED} MHz, Voltage: ${CPU_VOLTAGE}")
+else()
+    message(STATUS "Board: ${BOARD_VARIANT}, CPU: ${CPU_SPEED} MHz, PSRAM: N/A, Voltage: ${CPU_VOLTAGE}")
+endif()
 message(STATUS "I2S Audio: DATA=${I2S_DATA_PIN}, CLK_BASE=${I2S_CLOCK_PIN_BASE}")
 
 include(pico_sdk_import.cmake)
@@ -192,10 +200,12 @@ pico_generate_pio_header(drivers ${CMAKE_CURRENT_LIST_DIR}/drivers/audio_i2s.pio
 target_include_directories(drivers PUBLIC drivers drivers/nespad src ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(drivers PRIVATE
     BOARD_${BOARD_VARIANT}
-    PSRAM_MAX_FREQ_MHZ=${PSRAM_SPEED}
     I2S_DATA_PIN=${I2S_DATA_PIN}
     I2S_CLOCK_PIN_BASE=${I2S_CLOCK_PIN_BASE}
 )
+if (PSRAM_SPEED)
+    target_compile_definitions(drivers PRIVATE PSRAM_MAX_FREQ_MHZ=${PSRAM_SPEED})
+endif()
 if(DEBUG_LOGS_ENABLED)
     target_compile_definitions(drivers PRIVATE ENABLE_DEBUG_LOGS=1)
 else()
@@ -268,12 +278,14 @@ target_compile_definitions(${BUILD_NAME} PRIVATE
     BOARD_${BOARD_VARIANT}
     CPU_CLOCK_MHZ=${CPU_SPEED}
     CPU_VOLTAGE=${CPU_VOLTAGE}
-    PSRAM_MAX_FREQ_MHZ=${PSRAM_SPEED}
     FLASH_MAX_FREQ_MHZ=${FLASH_MAX_FREQ_MHZ}
     FIRMWARE_VERSION="${FIRMWARE_VERSION}"
     # RP2350 platform flag
     FRODO_RP2350=1
 )
+if (PSRAM_SPEED)
+    target_compile_definitions(${BUILD_NAME} PRIVATE PSRAM_MAX_FREQ_MHZ=${PSRAM_SPEED})
+endif()
 
 if(AUDIO_TYPE STREQUAL "I2S")
     target_compile_definitions(${BUILD_NAME} PRIVATE

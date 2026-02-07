@@ -56,20 +56,6 @@ static inline void rp2350_delay_us(uint32_t us) {
 }
 
 //=============================================================================
-// Memory Allocation (using PSRAM for large allocations)
-//=============================================================================
-
-// Forward declarations - implementations in psram_allocator.c
-void *psram_malloc(size_t size);
-void *psram_realloc(void *ptr, size_t size);
-void psram_free(void *ptr);
-
-// For C64 RAM, we want it in PSRAM
-#define C64_MALLOC(size)        psram_malloc(size)
-#define C64_FREE(ptr)           psram_free(ptr)
-#define C64_REALLOC(ptr, size)  psram_realloc(ptr, size)
-
-//=============================================================================
 // Atomic Operations
 //=============================================================================
 

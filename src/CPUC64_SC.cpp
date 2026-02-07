@@ -65,7 +65,7 @@
  *  6510 constructor: Initialize registers
  */
 
-MOS6510::MOS6510(C64 *c64, uint8_t *Ram, uint8_t *Basic, uint8_t *Kernal, uint8_t *Char, uint8_t *Color)
+MOS6510::MOS6510(C64 *c64, uint8_t *Ram, const uint8_t *Basic, uint8_t *Kernal, uint8_t *Char, uint8_t *Color)
  : the_c64(c64), ram(Ram), basic_rom(Basic), kernal_rom(Kernal), char_rom(Char), color_ram(Color)
 {
 	a = x = y = 0;

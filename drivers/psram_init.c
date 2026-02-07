@@ -6,9 +6,7 @@
 #include "pico/stdlib.h"
 
 // PSRAM max frequency from build config (default 133 MHz)
-#ifndef PSRAM_MAX_FREQ_MHZ
-#define PSRAM_MAX_FREQ_MHZ 133
-#endif
+#ifdef PSRAM_MAX_FREQ_MHZ
 
 void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
     const int clock_hz = clock_get_hz(clk_sys); 
@@ -76,3 +74,4 @@ void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
     
     hw_set_bits(&xip_ctrl_hw->ctrl, XIP_CTRL_WRITABLE_M1_BITS);
 }
+#endif

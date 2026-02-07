@@ -21,7 +21,6 @@
 #include <stdlib.h>
 
 #include "fatfs/ff.h"
-#include "psram_allocator.h"
 
 //=============================================================================
 // Configuration

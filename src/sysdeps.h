@@ -101,18 +101,22 @@ static inline void Delay_ms(uint32_t ms) {
 extern "C" {
 #endif
 
+#ifdef PSRAM_MAX_FREQ_MHZ
 void *psram_malloc(size_t size);
 void *psram_realloc(void *ptr, size_t size);
 void psram_free(void *ptr);
+#endif
 
 #ifdef __cplusplus
 }
 #endif
 
 // Macros for C64 memory allocation
+#ifdef PSRAM_MAX_FREQ_MHZ
 #define C64_MALLOC(size)        psram_malloc(size)
 #define C64_FREE(ptr)           psram_free(ptr)
 #define C64_REALLOC(ptr, size)  psram_realloc(ptr, size)
+#endif
 
 // File I/O wrappers for FatFS
 #ifdef __cplusplus

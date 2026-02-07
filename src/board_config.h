@@ -49,10 +49,6 @@
 #define CPU_VOLTAGE VREG_VOLTAGE_1_50
 #endif
 
-#ifndef PSRAM_MAX_FREQ_MHZ
-#define PSRAM_MAX_FREQ_MHZ 133
-#endif
-
 //=============================================================================
 // PSRAM Configuration
 //=============================================================================

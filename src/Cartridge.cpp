@@ -32,16 +32,22 @@ namespace fs = std::filesystem;
 ROMCartridge::ROMCartridge(unsigned num_banks, unsigned bank_size) : numBanks(num_banks), bankSize(bank_size)
 {
 	// Allocate ROM
+#ifdef PSRAM_MAX_FREQ_MHZ
 	rom = (uint8_t*)psram_malloc(num_banks * bank_size);
-	// new uint8_t[num_banks * bank_size];
+#else
+	rom = (uint8_t*)malloc(num_banks * bank_size);
+#endif
 	memset(rom, 0xff, num_banks * bank_size);
 }
 
 ROMCartridge::~ROMCartridge()
 {
 	// Free ROM
-	//delete[] rom;
+#ifdef PSRAM_MAX_FREQ_MHZ
 	psram_free(rom);
+#else
+	free(rom);
+#endif
 }
 
 
@@ -348,15 +354,22 @@ void CartridgeComal80::WriteIO1(uint16_t adr, uint8_t byte)
  */
 
 #ifdef FRODO_RP2350
+#ifdef PSRAM_MAX_FREQ_MHZ
 #include "psram_allocator.h"
+#endif
 #endif
 
 CartridgeEasyFlash::CartridgeEasyFlash()
 {
 	// Allocate ROML and ROMH banks (64 * 8KB each = 512KB each)
 #ifdef FRODO_RP2350
+#ifdef PSRAM_MAX_FREQ_MHZ
 	roml = (uint8_t *)psram_malloc(NUM_BANKS * BANK_SIZE);
 	romh = (uint8_t *)psram_malloc(NUM_BANKS * BANK_SIZE);
+#else
+	roml = (uint8_t *)malloc(NUM_BANKS * BANK_SIZE);
+	romh = (uint8_t *)malloc(NUM_BANKS * BANK_SIZE);
+#endif
 #else
 	roml = new uint8_t[NUM_BANKS * BANK_SIZE];
 	romh = new uint8_t[NUM_BANKS * BANK_SIZE];
@@ -376,9 +389,13 @@ CartridgeEasyFlash::CartridgeEasyFlash()
 CartridgeEasyFlash::~CartridgeEasyFlash()
 {
 #ifdef FRODO_RP2350
+#ifdef PSRAM_MAX_FREQ_MHZ
 	psram_free(roml);
 	psram_free(romh);
 #else
+	free(roml);
+	free(romh);
+#endif
 	delete[] roml;
 	delete[] romh;
 #endif

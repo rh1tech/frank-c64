@@ -63,13 +63,6 @@
 #include "Display.h"
 #include "Prefs.h"
 
-#ifdef FRODO_RP2350
-extern "C" {
-#include "psram_allocator.h"
-}
-#endif
-
-
 // Test alignment on run-time for processors that can't access unaligned:
 #undef ALIGNMENT_CHECK
 
@@ -242,7 +235,7 @@ static void init_text_color_table(uint8_t *colors)
 #endif
 }
 
-MOS6569::MOS6569(C64 *c64, Display *disp, MOS6510 *CPU, uint8_t *RAM, uint8_t *Char, uint8_t *Color)
+MOS6569::MOS6569(C64 *c64, Display *disp, MOS6510 *CPU, uint8_t *RAM, const uint8_t *Char, uint8_t *Color)
 	: ram(RAM), char_rom(Char), color_ram(Color), the_c64(c64), the_display(disp), the_cpu(CPU)
 {
 	// Set pointers
@@ -321,7 +314,7 @@ void MOS6569::make_mc_table()
  *  Convert video address to pointer
  */
 
-inline uint8_t *MOS6569::get_physical(uint16_t adr)
+inline const uint8_t *MOS6569::get_physical(uint16_t adr)
 {
 	int va = adr | cia_vabase;
 	if ((va & 0x7000) == 0x1000) {
@@ -781,7 +774,7 @@ void MOS6569::TriggerLightpen()
  *  Display line drawing routines...
  */
 
-inline void MOS6569::el_std_text(uint8_t *p, uint8_t *q, uint8_t *r)
+inline void MOS6569::el_std_text(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
 	unsigned int b0cc = b0c;
 	uint32_t *lp = (uint32_t *)p;
@@ -799,7 +792,7 @@ inline void MOS6569::el_std_text(uint8_t *p, uint8_t *q, uint8_t *r)
 }
 
 
-inline void MOS6569::el_mc_text(uint8_t *p, uint8_t *q, uint8_t *r)
+inline void MOS6569::el_mc_text(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
 	uint16_t *wp = (uint16_t *)p;
 	uint8_t *cp = color_line;
@@ -831,7 +824,7 @@ inline void MOS6569::el_mc_text(uint8_t *p, uint8_t *q, uint8_t *r)
 }
 
 
-inline void MOS6569::el_std_bitmap(uint8_t *p, uint8_t *q, uint8_t *r)
+inline void MOS6569::el_std_bitmap(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
 	uint32_t *lp = (uint32_t *)p;
 	uint8_t *mp = matrix_line;
@@ -848,7 +841,7 @@ inline void MOS6569::el_std_bitmap(uint8_t *p, uint8_t *q, uint8_t *r)
 }
 
 
-inline void MOS6569::el_mc_bitmap(uint8_t *p, uint8_t *q, uint8_t *r)
+inline void MOS6569::el_mc_bitmap(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
 	uint16_t lookup[4];
 	uint16_t *wp = (uint16_t *)p - 1;
@@ -879,7 +872,7 @@ inline void MOS6569::el_mc_bitmap(uint8_t *p, uint8_t *q, uint8_t *r)
 }
 
 
-inline void MOS6569::el_ecm_text(uint8_t *p, uint8_t *q, uint8_t *r)
+inline void MOS6569::el_ecm_text(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
 	uint32_t *lp = (uint32_t *)p;
 	uint8_t *cp = color_line;
@@ -949,7 +942,7 @@ inline void MOS6569::el_sprites(uint8_t *chunky_ptr)
 			uint8_t *q = spr_coll_buf + mx[snum] + 8;
 
 			// Fetch sprite data and mask
-			uint8_t *sdatap = get_physical(matrix_base[0x3f8 + snum] << 6 | mc[snum]);
+			const uint8_t *sdatap = get_physical(matrix_base[0x3f8 + snum] << 6 | mc[snum]);
 			uint32_t sdata = (*sdatap << 24) | (*(sdatap+1) << 16) | (*(sdatap+2) << 8);
 
 			uint8_t color = spr_color[snum];
@@ -1299,7 +1292,7 @@ unsigned MOS6569::EmulateLine(int & retCyclesLeft)
 			uint8_t *mp = matrix_line - 1;
 			uint8_t *cp = color_line - 1;
 			int vc1 = vc - 1;
-			uint8_t *mbp = matrix_base + vc1;
+			const uint8_t *mbp = matrix_base + vc1;
 			uint8_t *crp = color_ram + vc1;
 			for (unsigned i = 0; i < 40; ++i) {
 				*++mp = *++mbp;

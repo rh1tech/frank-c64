@@ -68,7 +68,7 @@
  *  6502 constructor: Initialize registers
  */
 
-MOS6502_1541::MOS6502_1541(C64 * c64, GCRDisk * gcr, uint8_t * Ram, uint8_t * Rom)
+MOS6502_1541::MOS6502_1541(C64 * c64, GCRDisk * gcr, uint8_t * Ram, const uint8_t * Rom)
  : ram(Ram), rom(Rom), the_c64(c64), the_gcr_disk(gcr)
 {
 	a = x = y = 0;
