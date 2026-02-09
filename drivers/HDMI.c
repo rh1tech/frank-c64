@@ -447,7 +447,7 @@ static inline bool hdmi_init() {
 
     //выключение SM основной и конвертора
 
-#if BOARD_Z0
+#if defined(BOARD_Z0) && defined(PICO_RP2350)
     pio_set_gpio_base(PIO_VIDEO, 16);
     pio_set_gpio_base(PIO_VIDEO_ADDR, 16);
 #endif
@@ -521,7 +521,7 @@ static inline bool hdmi_init() {
         gpio_set_slew_rate(beginHDMI_PIN_clk + i, GPIO_SLEW_RATE_FAST);
     }
 
-#if BOARD_Z0
+#if defined(BOARD_Z0) && defined(PICO_RP2350)
     // Настройка направлений пинов для state machines
     pio_sm_set_consecutive_pindirs(PIO_VIDEO, SM_video, HDMI_BASE_PIN, 8, true);
     pio_sm_set_consecutive_pindirs(PIO_VIDEO_ADDR, SM_conv, HDMI_BASE_PIN, 8, true);

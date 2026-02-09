@@ -234,8 +234,10 @@ static void setup_demoscene_palette(void) {
     graphics_set_palette(COLOR_TEXT_WHITE, 0xFFFFFF);   // 255
 }
 
+#if 0
 // Draw plasma background
-static void draw_plasma(uint8_t *fb, uint8_t time_offset) {
+static void draw_plasma(uint8_t time_offset) {
+    uint8_t *fb =;
     for (int y = 0; y < SCREEN_HEIGHT; y++) {
         for (int x = 0; x < SCREEN_WIDTH; x++) {
             // Smooth plasma formula using multiple overlapping sine waves
@@ -263,9 +265,9 @@ static void draw_plasma(uint8_t *fb, uint8_t time_offset) {
 }
 
 // Draw horizontal copper bars (classic Amiga effect)
-static void draw_copper_bars(uint8_t *fb, int bar_y, int bar_height) {
+static void draw_copper_bars(int bar_y, int bar_height) {
     if (bar_y < 0 || bar_y >= SCREEN_HEIGHT) return;
-
+uint8_t *fb =;
     for (int i = 0; i < bar_height && (bar_y + i) < SCREEN_HEIGHT; i++) {
         int y = bar_y + i;
         // Calculate color index based on position in bar (peak at center)
@@ -281,43 +283,51 @@ static void draw_copper_bars(uint8_t *fb, int bar_y, int bar_height) {
         }
     }
 }
+#endif
+
+extern uint8_t g_pixels[384 * 272];
+// Source: VIC buffer (384x272, 8-bit indexed color)
+// Dest: HDMI framebuffer (320x240, 8-bit indexed color)
 
 // Draw a character with drop shadow
-static void draw_char_shadow(uint8_t *fb, int x, int y, char c, uint8_t color) {
+static void draw_char_shadow(int x, int y, char c, uint8_t color) {
     int idx = (unsigned char)c - 32;
     if (idx < 0 || idx > 94) return;
+    uint8_t *fb = g_pixels;
+    x += C64_CROP_LEFT;
+    y += C64_CROP_TOP;
 
     const uint8_t *glyph = font_6x8[idx];
 
     // Draw shadow first (offset by 1,1)
     for (int row = 0; row < 8; row++) {
-        if (y + row + 1 < 0 || y + row + 1 >= SCREEN_HEIGHT) continue;
+        if (y + row + 1 < 0 || y + row + 1 >= C64_DISPLAY_HEIGHT) continue;
         uint8_t bits = glyph[row];
         for (int col = 0; col < 6; col++) {
-            if (x + col + 1 < 0 || x + col + 1 >= SCREEN_WIDTH) continue;
+            if (x + col + 1 < 0 || x + col + 1 >= C64_DISPLAY_WIDTH) continue;
             if (bits & (0x80 >> col)) {
-                fb[(y + row + 1) * SCREEN_WIDTH + (x + col + 1)] = COLOR_TEXT_SHADOW;
+                fb[(y + row + 1) * C64_DISPLAY_WIDTH + (x + col + 1)] = COLOR_TEXT_SHADOW;
             }
         }
     }
 
     // Draw main character
     for (int row = 0; row < 8; row++) {
-        if (y + row < 0 || y + row >= SCREEN_HEIGHT) continue;
+        if (y + row < 0 || y + row >= C64_DISPLAY_HEIGHT) continue;
         uint8_t bits = glyph[row];
         for (int col = 0; col < 6; col++) {
-            if (x + col < 0 || x + col >= SCREEN_WIDTH) continue;
+            if (x + col < 0 || x + col >= C64_DISPLAY_WIDTH) continue;
             if (bits & (0x80 >> col)) {
-                fb[(y + row) * SCREEN_WIDTH + (x + col)] = color;
+                fb[(y + row) * C64_DISPLAY_WIDTH + (x + col)] = color;
             }
         }
     }
 }
 
 // Draw string with drop shadow
-static void draw_string_shadow(uint8_t *fb, int x, int y, const char *str, uint8_t color) {
+static void draw_string_shadow(int x, int y, const char *str, uint8_t color) {
     while (*str) {
-        draw_char_shadow(fb, x, y, *str, color);
+        draw_char_shadow(x, y, *str, color);
         x += CHAR_WIDTH;
         str++;
     }
@@ -329,19 +339,22 @@ static int string_width(const char *str) {
 }
 
 // Draw centered string with shadow
-static void draw_centered_shadow(uint8_t *fb, int y, const char *str, uint8_t color) {
+static void draw_centered_shadow(int y, const char *str, uint8_t color) {
     int w = string_width(str);
     int x = (SCREEN_WIDTH - w) / 2;
-    draw_string_shadow(fb, x, y, str, color);
+    draw_string_shadow(x, y, str, color);
 }
 
 // Draw a semi-transparent box (darkens background)
-static void draw_dark_box(uint8_t *fb, int x, int y, int w, int h) {
+static void draw_dark_box(int x, int y, int w, int h) {
+    uint8_t *fb = g_pixels;
+    x += C64_CROP_LEFT;
+    y += C64_CROP_TOP;
     for (int dy = 0; dy < h; dy++) {
-        if (y + dy < 0 || y + dy >= SCREEN_HEIGHT) continue;
+        if (y + dy < 0 || y + dy >= C64_DISPLAY_HEIGHT) continue;
         for (int dx = 0; dx < w; dx++) {
-            if (x + dx < 0 || x + dx >= SCREEN_WIDTH) continue;
-            int idx = (y + dy) * SCREEN_WIDTH + (x + dx);
+            if (x + dx < 0 || x + dx >= C64_DISPLAY_WIDTH) continue;
+            int idx = (y + dy) * C64_DISPLAY_WIDTH + (x + dx);
             // Darken by reducing to lower palette entries
             uint8_t current = fb[idx];
             if (current >= PALETTE_PLASMA_START) {
@@ -354,18 +367,21 @@ static void draw_dark_box(uint8_t *fb, int x, int y, int w, int h) {
 }
 
 // Draw a glowing border around a box
-static void draw_glow_border(uint8_t *fb, int x, int y, int w, int h, uint8_t base_color) {
+static void draw_glow_border(int x, int y, int w, int h, uint8_t base_color) {
+    uint8_t *fb = g_pixels;
+    x += C64_CROP_LEFT;
+    y += C64_CROP_TOP;
     // Draw outer glow (darker)
     for (int i = -2; i <= w + 1; i++) {
-        if (x + i >= 0 && x + i < SCREEN_WIDTH) {
-            if (y - 2 >= 0) fb[(y - 2) * SCREEN_WIDTH + x + i] = base_color;
-            if (y + h + 1 < SCREEN_HEIGHT) fb[(y + h + 1) * SCREEN_WIDTH + x + i] = base_color;
+        if (x + i >= 0 && x + i < C64_DISPLAY_WIDTH) {
+            if (y - 2 >= 0) fb[(y - 2) * C64_DISPLAY_WIDTH + x + i] = base_color;
+            if (y + h + 1 < C64_DISPLAY_HEIGHT) fb[(y + h + 1) * C64_DISPLAY_WIDTH + x + i] = base_color;
         }
     }
     for (int i = -1; i <= h; i++) {
-        if (y + i >= 0 && y + i < SCREEN_HEIGHT) {
-            if (x - 2 >= 0) fb[(y + i) * SCREEN_WIDTH + x - 2] = base_color;
-            if (x + w + 1 < SCREEN_WIDTH) fb[(y + i) * SCREEN_WIDTH + x + w + 1] = base_color;
+        if (y + i >= 0 && y + i < C64_DISPLAY_HEIGHT) {
+            if (x - 2 >= 0) fb[(y + i) * C64_DISPLAY_WIDTH + x - 2] = base_color;
+            if (x + w + 1 < C64_DISPLAY_WIDTH) fb[(y + i) * C64_DISPLAY_WIDTH + x + w + 1] = base_color;
         }
     }
 
@@ -375,110 +391,78 @@ static void draw_glow_border(uint8_t *fb, int x, int y, int w, int h, uint8_t ba
         bright = PALETTE_PLASMA_START + PALETTE_PLASMA_COUNT - 1;
 
     for (int i = -1; i <= w; i++) {
-        if (x + i >= 0 && x + i < SCREEN_WIDTH) {
-            if (y - 1 >= 0) fb[(y - 1) * SCREEN_WIDTH + x + i] = bright;
-            if (y + h < SCREEN_HEIGHT) fb[(y + h) * SCREEN_WIDTH + x + i] = bright;
+        if (x + i >= 0 && x + i < C64_DISPLAY_WIDTH) {
+            if (y - 1 >= 0) fb[(y - 1) * C64_DISPLAY_WIDTH + x + i] = bright;
+            if (y + h < C64_DISPLAY_HEIGHT) fb[(y + h) * C64_DISPLAY_WIDTH + x + i] = bright;
         }
     }
     for (int i = 0; i < h; i++) {
-        if (y + i >= 0 && y + i < SCREEN_HEIGHT) {
-            if (x - 1 >= 0) fb[(y + i) * SCREEN_WIDTH + x - 1] = bright;
-            if (x + w < SCREEN_WIDTH) fb[(y + i) * SCREEN_WIDTH + x + w] = bright;
+        if (y + i >= 0 && y + i < C64_DISPLAY_HEIGHT) {
+            if (x - 1 >= 0) fb[(y + i) * C64_DISPLAY_WIDTH + x - 1] = bright;
+            if (x + w < C64_DISPLAY_WIDTH) fb[(y + i) * C64_DISPLAY_WIDTH + x + w] = bright;
         }
     }
 }
 
 int startscreen_show(startscreen_info_t *info) {
-#if 0
     // Setup demoscene color palette
     setup_demoscene_palette();
 
-    // Animate the plasma for visual effect
-    const int num_frames = 120;  // ~4 seconds at 30fps
-    const int frame_delay = 33;  // ~30fps for smooth animation
+    // Info box dimensions
+    const int box_w = 240;
+    const int box_h = 140;
+    const int box_x = (SCREEN_WIDTH - box_w) / 2;
+    const int box_y = (SCREEN_HEIGHT - box_h) / 2;
 
-    int back_buffer_idx = 1;  // Start drawing to buffer 1
+    // Draw darkened info box area
+    draw_dark_box(box_x, box_y, box_w, box_h);
 
-    for (int frame = 0; frame < num_frames; frame++) {
-        // Get back buffer to draw to
-        uint8_t *buffer = framebuffers[back_buffer_idx];
+    // Draw glowing border
+    draw_glow_border(box_x, box_y, box_w, box_h, PALETTE_PLASMA_START + 100);
 
-        // Draw animated plasma background
-        draw_plasma(buffer, frame * 4);
+    // Text content
+    int text_y = box_y + 12;
 
-        // Add copper bars at different positions
-        int bar1_y = 20 + (sine_table[(frame * 3) & 0xFF] * 30 / 255);
-        int bar2_y = SCREEN_HEIGHT - 50 - (sine_table[(frame * 3 + 128) & 0xFF] * 30 / 255);
-        draw_copper_bars(buffer, bar1_y, 12);
-        draw_copper_bars(buffer, bar2_y, 12);
+    // Title (large, centered)
+    draw_centered_shadow(text_y, info->title, COLOR_TEXT_WHITE);
+    text_y += LINE_HEIGHT + 4;
 
-        // Info box dimensions
-        const int box_w = 240;
-        const int box_h = 140;
-        const int box_x = (SCREEN_WIDTH - box_w) / 2;
-        const int box_y = (SCREEN_HEIGHT - box_h) / 2;
+    // Subtitle
+    draw_centered_shadow(text_y, info->subtitle, COLOR_TEXT_CYAN);
+    text_y += LINE_HEIGHT + 2;
 
-        // Draw darkened info box area
-        draw_dark_box(buffer, box_x, box_y, box_w, box_h);
+    // Version (green)
+    draw_centered_shadow(text_y, info->version, COLOR_TEXT_GREEN);
+    text_y += LINE_HEIGHT + 12;
 
-        // Draw glowing border
-        draw_glow_border(buffer, box_x, box_y, box_w, box_h, PALETTE_PLASMA_START + 100);
+    // System info
+    char line[48];
 
-        // Text content
-        int text_y = box_y + 12;
-
-        // Title (large, centered)
-        draw_centered_shadow(buffer, text_y, info->title, COLOR_TEXT_WHITE);
-        text_y += LINE_HEIGHT + 4;
-
-        // Subtitle
-        draw_centered_shadow(buffer, text_y, info->subtitle, COLOR_TEXT_CYAN);
-        text_y += LINE_HEIGHT + 2;
-
-        // Version (green)
-        draw_centered_shadow(buffer, text_y, info->version, COLOR_TEXT_GREEN);
-        text_y += LINE_HEIGHT + 12;
-
-        // System info
-        char line[48];
-
-        snprintf(line, sizeof(line), "CPU: %lu MHz", (unsigned long)info->cpu_mhz);
-        draw_centered_shadow(buffer, text_y, line, COLOR_TEXT_WHITE);
-        text_y += LINE_HEIGHT + 2;
+    snprintf(line, sizeof(line), "CPU: %lu MHz", (unsigned long)info->cpu_mhz);
+    draw_centered_shadow(text_y, line, COLOR_TEXT_WHITE);
+    text_y += LINE_HEIGHT + 2;
 
 #ifdef PSRAM_MAX_FREQ_MHZ
-        snprintf(line, sizeof(line), "PSRAM: %lu MHz", (unsigned long)info->psram_mhz);
-        draw_centered_shadow(line, text_y, line, COLOR_TEXT_WHITE);
-        text_y += LINE_HEIGHT + 2;
+    snprintf(line, sizeof(line), "PSRAM: %lu MHz", (unsigned long)info->psram_mhz);
+    draw_centered_shadow(line, text_y, line, COLOR_TEXT_WHITE);
+    text_y += LINE_HEIGHT + 2;
 #endif
 
-        snprintf(line, sizeof(line), "Board: %s", info->board_variant);
-        draw_centered_shadow(buffer, text_y, line, COLOR_TEXT_WHITE);
-        text_y += LINE_HEIGHT + 10;
+    snprintf(line, sizeof(line), "Board: %s", info->board_variant);
+    draw_centered_shadow(text_y, line, COLOR_TEXT_WHITE);
+    text_y += LINE_HEIGHT + 10;
 
-        // Credits
-        draw_centered_shadow(buffer, text_y, "By Mikhail Matveev", COLOR_TEXT_CYAN);
-        text_y += LINE_HEIGHT;
-        draw_centered_shadow(buffer, text_y, "rh1.tech", COLOR_TEXT_CYAN);
+    // Credits
+    draw_centered_shadow(text_y, "By Mikhail Matveev", COLOR_TEXT_CYAN);
+    text_y += LINE_HEIGHT;
+    draw_centered_shadow(text_y, "rh1.tech", COLOR_TEXT_CYAN);
 
-        // Starting message at bottom (blinking on later frames, green)
-        if (frame > 60 || (frame / 8) % 2 == 0) {
-            text_y = box_y + box_h - 16;
-            draw_centered_shadow(buffer, text_y, "Starting...", COLOR_TEXT_GREEN);
-        }
-
-        // Swap buffers - display what we just drew
-        graphics_request_buffer_swap(buffer);
-
-        // Toggle buffer index for next frame
-        back_buffer_idx = 1 - back_buffer_idx;
-
-        // Wait for next frame
-        sleep_ms(frame_delay);
-    }
+    // Starting message at bottom
+    text_y = box_y + box_h - 16;
+    draw_centered_shadow(text_y, "Starting...", COLOR_TEXT_GREEN);
 
     // Hold final frame briefly
-    sleep_ms(500);
-#endif
+    sleep_ms(5000);
+
     return 0;
 }

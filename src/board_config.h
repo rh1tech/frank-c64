@@ -191,14 +191,14 @@ static inline uint get_psram_pin(void) {
 
 #endif // BOARD_PC
 
-//=============================================================================
-// Wavshare RP2350-PiZero Layout Configuration
-//=============================================================================
 #ifdef BOARD_Z0
 
+//=============================================================================
+// Waveshare RP2350-PiZero Layout Configuration
+//=============================================================================
+#if PICO_RP2350
 // HDMI Pins
 #define HDMI_PIN_CLKN 32
-
 #define HDMI_BASE_PIN HDMI_PIN_CLKN
 
 #define HDMI_PIN_RGB_notBGR (0)
@@ -217,13 +217,50 @@ static inline uint get_psram_pin(void) {
 #define PS2_PIN_CLK  2
 #define PS2_PIN_DATA 3
 
-// NES/SNES Gamepad Pins (directly after HDMI pins)
+// NES/SNES Gamepad Pins
 #define NESPAD_GPIO_CLK   4
 #define NESPAD_GPIO_LATCH 5
 #define NESPAD_GPIO_DATA  7
 
 #define PWM_RIGHT_PIN 10
 #define PWM_LEFT_PIN 11
+#else
+//=============================================================================
+// Waveshare RP2040-PiZero Layout Configuration
+//=============================================================================
+#undef PICO_DEFAULT_LED_PIN
+#define PICO_DEFAULT_LED_PIN 0
+
+#define HDMI_PIN_CLKN 22
+#define HDMI_BASE_PIN HDMI_PIN_CLKN
+
+#define HDMI_PIN_RGB_notBGR (0)
+#define HDMI_PIN_invert_diffpairs (0)
+#define beginHDMI_PIN_data (HDMI_BASE_PIN)
+#define beginHDMI_PIN_clk (HDMI_BASE_PIN + 6)
+
+// PS/2 Keyboard Pins
+#define PS2_PIN_CLK  2
+#define PS2_PIN_DATA 3
+
+#define SDCARD_PIN_CLK    18
+#define SDCARD_PIN_CMD    19
+#define SDCARD_PIN_D0     20
+#define SDCARD_PIN_D3     21
+
+#define NESPAD_GPIO_CLK   6
+#define NESPAD_GPIO_LATCH 7
+#define NESPAD_GPIO_DATA  8
+
+// I2S Audio Pins
+#ifndef I2S_DATA_PIN
+#define I2S_DATA_PIN       10
+#define I2S_CLOCK_PIN_BASE 11
+#endif
+
+#define PWM_RIGHT_PIN 10
+#define PWM_LEFT_PIN 11
+#endif
 
 #endif // BOARD_Z0
 
