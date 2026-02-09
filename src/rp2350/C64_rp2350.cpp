@@ -57,7 +57,9 @@ C64 *TheC64 = nullptr;
 
 // External display pointer
 static Display *g_display = nullptr;
-
+static uint8_t g_RAM[C64_RAM_SIZE] __aligned(4);
+static uint8_t g_RAM1541[DRIVE_RAM_SIZE] __aligned(4);
+static uint8_t g_Color[COLOR_RAM_SIZE] __aligned(4);
 
 /*
  *  C64 Constructor (simplified for RP2350)
@@ -67,20 +69,14 @@ C64::C64() : quit_requested(false), prefs_editor_requested(false), load_snapshot
 {
     MII_DEBUG_PRINTF("C64: Allocating memory...\n");
 
-    RAM = (uint8_t *)malloc(C64_RAM_SIZE);
-    RAM1541 = (uint8_t *)malloc(DRIVE_RAM_SIZE);
+    RAM = g_RAM;
+    RAM1541 = g_RAM1541;
     Basic = BuiltinBasicROM;
     Kernal = c64_fast_reset_rom;
     Char = BuiltinCharROM;
     ROM1541 = c64_1541_rom;
-
     // Color RAM in regular SRAM for fast VIC access
-    Color = new uint8_t[COLOR_RAM_SIZE];
-
-    if (!RAM || !Color || !RAM1541) {
-        MII_DEBUG_PRINTF("ERROR: Failed to allocate C64 memory!\n");
-        return;
-    }
+    Color = g_Color;
 
     MII_DEBUG_PRINTF("C64: Memory allocated OK\n");
 
@@ -156,10 +152,6 @@ C64::~C64()
     delete TheCPU1541;
     delete TheCPU;
     delete TheDisplay;
-
-    free(RAM);
-    free(RAM1541);
-    delete[] Color;
 }
 
 
@@ -640,7 +632,7 @@ bool c64_run_frame(void)
             c64->TheCIA2->CountTOD();
         }
     }
-
+#if 0
     // Debug: warn if we hit the safety limit
     if (line_count >= MAX_LINES_PER_FRAME) {
         static int overflow_count = 0;
@@ -659,10 +651,7 @@ bool c64_run_frame(void)
                ThePrefs.Emul1541Proc ? "ON" : "OFF",
                c64->TheCPU1541->Idle);
     }
-
-    // Update display
-    c64->TheDisplay->Update();
-
+#endif
     return true;
 }
 

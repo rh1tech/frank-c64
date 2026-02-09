@@ -17,12 +17,8 @@
 #include "pico/stdlib.h"
 
 // HDMI driver functions
-extern uint8_t* graphics_get_buffer(void);
+extern uint8_t* graphics_get_buffer_line(int y);
 extern void graphics_set_palette(uint8_t i, uint32_t color888);
-extern void graphics_request_buffer_swap(uint8_t *buffer);
-
-// Double buffering - access main framebuffers
-extern uint8_t *framebuffers[2];
 
 // Screen dimensions
 #define SCREEN_WIDTH   FB_WIDTH
@@ -393,9 +389,7 @@ static void draw_glow_border(uint8_t *fb, int x, int y, int w, int h, uint8_t ba
 }
 
 int startscreen_show(startscreen_info_t *info) {
-    // Check framebuffers are available for double buffering
-    if (!framebuffers[0] || !framebuffers[1]) return -1;
-
+#if 0
     // Setup demoscene color palette
     setup_demoscene_palette();
 
@@ -485,6 +479,6 @@ int startscreen_show(startscreen_info_t *info) {
 
     // Hold final frame briefly
     sleep_ms(500);
-
+#endif
     return 0;
 }

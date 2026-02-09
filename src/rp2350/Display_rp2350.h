@@ -66,8 +66,6 @@ private:
 
     C64 * the_c64;                      // Pointer to C64 object
 
-    int led_state[4];                   // Drive LED states
-
     uint8_t * vic_pixels;               // Buffer for VIC to draw into (DISPLAY_X * DISPLAY_Y)
     uint32_t palette[16];               // C64 color palette (ARGB)
 

@@ -49,6 +49,7 @@
 #define CPU_VOLTAGE VREG_VOLTAGE_1_50
 #endif
 
+#if PICO_RP2350
 //=============================================================================
 // PSRAM Configuration
 //=============================================================================
@@ -72,6 +73,7 @@ static inline uint get_psram_pin(void) {
         return PSRAM_PIN_RP2350B;
     }
 }
+#endif
 
 //=============================================================================
 // M1 Layout Configuration

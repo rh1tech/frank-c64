@@ -38,7 +38,7 @@ void disk_ui_toggle(void);
 bool disk_ui_handle_key(uint8_t key);
 
 // Render the disk UI overlay to framebuffer
-void disk_ui_render(uint8_t *framebuffer);
+void disk_ui_render();
 
 // Check if UI is visible
 bool disk_ui_is_visible(void);

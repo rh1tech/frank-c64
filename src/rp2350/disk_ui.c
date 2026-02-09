@@ -158,6 +158,7 @@ static const uint8_t font_6x8[][8] = {
 };
 
 extern char current_scan_path[128];
+static bool ui_dirty = true;
 
 static inline bool has_parent_dir(void)
 {
@@ -176,84 +177,94 @@ static void clamp_scroll(void)
         scroll_offset = 0;
 }
 
+extern uint8_t g_pixels[384 * 272];
+// Source: VIC buffer (384x272, 8-bit indexed color)
+// Dest: HDMI framebuffer (320x240, 8-bit indexed color)
+
 // Draw a filled rectangle
-static void draw_rect(uint8_t *fb, int x, int y, int w, int h, uint8_t color) {
+static void draw_rect(int x, int y, int w, int h, uint8_t color) {
+    x += C64_CROP_LEFT;
+    y += C64_CROP_TOP;
+    uint8_t *fb = g_pixels;
     for (int dy = 0; dy < h; dy++) {
-        if (y + dy < 0 || y + dy >= FB_HEIGHT) continue;
+        if (y + dy < 0 || y + dy >= C64_DISPLAY_HEIGHT) continue;
         for (int dx = 0; dx < w; dx++) {
-            if (x + dx < 0 || x + dx >= FB_WIDTH) continue;
-            fb[(y + dy) * FB_WIDTH + (x + dx)] = color;
+            if (x + dx < 0 || x + dx >= C64_DISPLAY_WIDTH) continue;
+            fb[(y + dy) * C64_DISPLAY_WIDTH + (x + dx)] = color;
         }
     }
 }
 
 // Draw a character using the 6x8 bitmap font
-static void draw_char(uint8_t *fb, int x, int y, char c, uint8_t color) {
+static void draw_char(int x, int y, char c, uint8_t color) {
+    x += C64_CROP_LEFT;
+    y += C64_CROP_TOP;
+    uint8_t *fb = g_pixels;
     int idx = (unsigned char)c - 32;
     if (idx < 0 || idx > 94) return;
 
     const uint8_t *glyph = font_6x8[idx];
 
     for (int row = 0; row < 8; row++) {
-        if (y + row < 0 || y + row >= FB_HEIGHT) continue;
+        if (y + row < 0 || y + row >= (C64_DISPLAY_HEIGHT - C64_CROP_TOP * 2)) continue;
         uint8_t bits = glyph[row];
         for (int col = 0; col < 6; col++) {
-            if (x + col < 0 || x + col >= FB_WIDTH) continue;
+            if (x + col < 0 || x + col >= C64_DISPLAY_WIDTH) continue;
             if (bits & (0x80 >> col)) {
-                fb[(y + row) * FB_WIDTH + (x + col)] = color;
+                fb[(y + row) * C64_DISPLAY_WIDTH + (x + col)] = color;
             }
         }
     }
 }
 
 // Draw a string
-static void draw_string(uint8_t *fb, int x, int y, const char *str, uint8_t color) {
+void draw_string(int x, int y, const char *str, uint8_t color) {
     while (*str) {
-        draw_char(fb, x, y, *str, color);
+        draw_char(x, y, *str, color);
         x += CHAR_WIDTH;
         str++;
     }
 }
 
 // Draw a string with truncation
-static void draw_string_truncated(uint8_t *fb, int x, int y, const char *str, int max_chars, uint8_t color) {
+static void draw_string_truncated(int x, int y, const char *str, int max_chars, uint8_t color) {
     int len = strlen(str);
     if (len <= max_chars) {
-        draw_string(fb, x, y, str, color);
+        draw_string(x, y, str, color);
     } else {
         for (int i = 0; i < max_chars - 3; i++) {
-            draw_char(fb, x + i * CHAR_WIDTH, y, str[i], color);
+            draw_char(x + i * CHAR_WIDTH, y, str[i], color);
         }
-        draw_string(fb, x + (max_chars - 3) * CHAR_WIDTH, y, "...", color);
+        draw_string(x + (max_chars - 3) * CHAR_WIDTH, y, "...", color);
     }
 }
 
 // Draw header bar
-static void draw_header(uint8_t *fb, int x, int y, int w, const char *title) {
-    draw_rect(fb, x, y, w, HEADER_HEIGHT, COLOR_HEADER_BG);
+static void draw_header(int x, int y, int w, const char *title) {
+    draw_rect(x, y, w, HEADER_HEIGHT, COLOR_HEADER_BG);
     int title_len = strlen(title);
     int title_x = x + (w - title_len * CHAR_WIDTH) / 2;
     int title_y = y + (HEADER_HEIGHT - CHAR_HEIGHT) / 2;
-    draw_string(fb, title_x, title_y, title, COLOR_HEADER_FG);
+    draw_string(title_x, title_y, title, COLOR_HEADER_FG);
 }
 
 // Draw a menu item
-static void draw_menu_item(uint8_t *fb, int x, int y, int w, const char *text, int max_chars, bool selected) {
+static void draw_menu_item(int x, int y, int w, const char *text, int max_chars, bool selected) {
     if (selected) {
-        draw_rect(fb, x, y, w, LINE_HEIGHT, COLOR_SELECT_BG);
-        draw_string_truncated(fb, x + 2, y + 1, text, max_chars, COLOR_SELECT_FG);
+        draw_rect(x, y, w, LINE_HEIGHT, COLOR_SELECT_BG);
+        draw_string_truncated(x + 2, y + 1, text, max_chars, COLOR_SELECT_FG);
     } else {
-        draw_rect(fb, x, y, w, LINE_HEIGHT, COLOR_BG);
-        draw_string_truncated(fb, x + 2, y + 1, text, max_chars, COLOR_TEXT);
+        draw_rect(x, y, w, LINE_HEIGHT, COLOR_BG);
+        draw_string_truncated(x + 2, y + 1, text, max_chars, COLOR_TEXT);
     }
 }
 
 // Draw border
-static void draw_border(uint8_t *fb, int x, int y, int w, int h) {
-    draw_rect(fb, x, y, w, 1, COLOR_BORDER);
-    draw_rect(fb, x, y + h - 1, w, 1, COLOR_BORDER);
-    draw_rect(fb, x, y, 1, h, COLOR_BORDER);
-    draw_rect(fb, x + w - 1, y, 1, h, COLOR_BORDER);
+static void draw_border(int x, int y, int w, int h) {
+    draw_rect(x, y, w, 1, COLOR_BORDER);
+    draw_rect(x, y + h - 1, w, 1, COLOR_BORDER);
+    draw_rect(x, y, 1, h, COLOR_BORDER);
+    draw_rect(x + w - 1, y, 1, h, COLOR_BORDER);
 }
 
 void disk_ui_init(void) {
@@ -270,12 +281,14 @@ void disk_ui_show(void) {
         scroll_offset = 0;
         clamp_scroll();
         MII_DEBUG_PRINTF("Disk UI: showing file selection\n");
+        ui_dirty = true;
     }
 }
 
 void disk_ui_hide(void) {
     ui_state = DISK_UI_HIDDEN;
     MII_DEBUG_PRINTF("Disk UI: hidden\n");
+    ui_dirty = true;
 }
 
 void disk_ui_toggle(void) {
@@ -307,6 +320,7 @@ void disk_ui_move_up(void) {
     if (selected_file < scroll_offset) {
         scroll_offset = selected_file;
     }
+    ui_dirty = true;
 }
 
 void disk_ui_move_down(void) {
@@ -322,6 +336,7 @@ void disk_ui_move_down(void) {
     if (selected_file >= scroll_offset + MAX_VISIBLE) {
         scroll_offset = selected_file - MAX_VISIBLE + 1;
     }
+    ui_dirty = true;
 }
 
 void disk_ui_page_up(void)
@@ -336,6 +351,7 @@ void disk_ui_page_up(void)
     // если курсор ушёл выше окна — подтянуть окно
     if (selected_file < scroll_offset)
         scroll_offset = selected_file;
+    ui_dirty = true;
 }
 
 void disk_ui_page_down(void)
@@ -350,6 +366,7 @@ void disk_ui_page_down(void)
     // если курсор ушёл ниже окна — сдвинуть окно
     if (selected_file >= scroll_offset + MAX_VISIBLE)
         scroll_offset = selected_file - MAX_VISIBLE + 1;
+    ui_dirty = true;
 }
 
 void disk_ui_home(void)
@@ -362,6 +379,7 @@ void disk_ui_home(void)
     // если окно было ниже — подтянуть вверх
     if (scroll_offset != 0)
         scroll_offset = 0;
+    ui_dirty = true;
 }
 
 void disk_ui_end(void)
@@ -379,6 +397,7 @@ void disk_ui_end(void)
 
     if (scroll_offset != min_scroll)
         scroll_offset = min_scroll;
+    ui_dirty = true;
 }
 
 int disk_ui_get_selected(void) {
@@ -403,6 +422,7 @@ void disk_ui_select(void) {
             disk_loader_scan_dir(current_scan_path);
             selected_file = 0;
             scroll_offset = 0;
+            ui_dirty = true;
             return;
         }
 
@@ -420,6 +440,7 @@ void disk_ui_select(void) {
             disk_loader_scan_dir(current_scan_path);
             selected_file = 0;
             scroll_offset = 0;
+            ui_dirty = true;
             return;
         }
 
@@ -427,6 +448,7 @@ void disk_ui_select(void) {
         ui_state = DISK_UI_SELECT_ACTION;
         selected_action = 0;  // Default to "Load"
         MII_DEBUG_PRINTF("Disk UI: showing action selection for file %d\n", selected_file);
+        ui_dirty = true;
     }
 }
 
@@ -437,12 +459,14 @@ int disk_ui_get_state(void) {
 void disk_ui_action_up(void) {
     if (ui_state == DISK_UI_SELECT_ACTION) {
         selected_action = (selected_action > 0) ? selected_action - 1 : 1;
+        ui_dirty = true;
     }
 }
 
 void disk_ui_action_down(void) {
     if (ui_state == DISK_UI_SELECT_ACTION) {
         selected_action = (selected_action < 1) ? selected_action + 1 : 0;
+        ui_dirty = true;
     }
 }
 
@@ -460,6 +484,7 @@ void disk_ui_cancel_action(void) {
     if (ui_state == DISK_UI_SELECT_ACTION) {
         ui_state = DISK_UI_SELECT_FILE;
         MII_DEBUG_PRINTF("Disk UI: cancelled action, back to file selection\n");
+        ui_dirty = true;
     }
 }
 
@@ -474,6 +499,7 @@ void disk_ui_delete(void) {
         int count = disk_ui_get_count();
         if (selected_file >= count)
             selected_file = count ? count - 1 : 0;
+        ui_dirty = true;
     }
 }
 
@@ -498,7 +524,7 @@ bool disk_ui_handle_key(uint8_t key) {
 }
 
 // Draw action selection dialog (small popup over file list)
-static void draw_action_dialog(uint8_t *framebuffer) {
+static void draw_action_dialog() {
     // Action dialog dimensions - smaller centered box
     int dlg_width = 160;
     int dlg_height = 70;
@@ -506,35 +532,36 @@ static void draw_action_dialog(uint8_t *framebuffer) {
     int dlg_y = UI_Y + (UI_HEIGHT - dlg_height) / 2;
 
     // Draw dialog background
-    draw_rect(framebuffer, dlg_x, dlg_y, dlg_width, dlg_height, COLOR_BG);
+    draw_rect(dlg_x, dlg_y, dlg_width, dlg_height, COLOR_BG);
 
     // Draw border
-    draw_border(framebuffer, dlg_x, dlg_y, dlg_width, dlg_height);
+    draw_border(dlg_x, dlg_y, dlg_width, dlg_height);
 
     // Draw header
-    draw_header(framebuffer, dlg_x, dlg_y, dlg_width, " Action ");
+    draw_header(dlg_x, dlg_y, dlg_width, " Action ");
 
     int content_x = dlg_x + UI_PADDING;
     int content_y = dlg_y + HEADER_HEIGHT + UI_PADDING;
     int item_width = dlg_width - UI_PADDING * 2;
 
     // Draw "Load" option
-    draw_menu_item(framebuffer, content_x, content_y, item_width,
+    draw_menu_item(content_x, content_y, item_width,
                    "Load (Run)", 20, selected_action == 0);
 
     // Draw "Mount" option
-    draw_menu_item(framebuffer, content_x, content_y + LINE_HEIGHT + 2, item_width,
+    draw_menu_item(content_x, content_y + LINE_HEIGHT + 2, item_width,
                    "Mount (Insert)", 20, selected_action == 1);
 
     // Draw footer
     int footer_y = dlg_y + dlg_height - LINE_HEIGHT - 2;
-    draw_string(framebuffer, content_x, footer_y, "[Enter] OK [Esc] Back", COLOR_TEXT);
+    draw_string(content_x, footer_y, "[Enter] OK [Esc] Back", COLOR_TEXT);
 }
 
-void disk_ui_render(uint8_t *framebuffer) {
-    if (ui_state == DISK_UI_HIDDEN || !framebuffer) {
+void disk_ui_render() {
+    if (ui_state == DISK_UI_HIDDEN || !ui_dirty) {
         return;
     }
+    ui_dirty = false;
 
     int count = disk_ui_get_count();
     int content_x = UI_X + UI_PADDING;
@@ -543,19 +570,19 @@ void disk_ui_render(uint8_t *framebuffer) {
     int max_chars = (content_width - 4) / CHAR_WIDTH;
 
     // Draw dialog background
-    draw_rect(framebuffer, UI_X, UI_Y, UI_WIDTH, UI_HEIGHT, COLOR_BG);
+    draw_rect(UI_X, UI_Y, UI_WIDTH, UI_HEIGHT, COLOR_BG);
 
     // Draw border
-    draw_border(framebuffer, UI_X, UI_Y, UI_WIDTH, UI_HEIGHT);
+    draw_border(UI_X, UI_Y, UI_WIDTH, UI_HEIGHT);
 
     // Draw header
-    draw_header(framebuffer, UI_X, UI_Y, UI_WIDTH, " Select Disk Image ");
+    draw_header(UI_X, UI_Y, UI_WIDTH, " Select Disk Image ");
 
     int y = content_y;
 
     if (count == 0) {
-        draw_string(framebuffer, content_x, y, "No disk images found", COLOR_TEXT);
-        draw_string(framebuffer, content_x, y + LINE_HEIGHT, "Place .d64/.g64/.prg in /c64", COLOR_TEXT);
+        draw_string(content_x, y, "No disk images found", COLOR_TEXT);
+        draw_string(content_x, y + LINE_HEIGHT, "Place .d64/.g64/.prg in /c64", COLOR_TEXT);
     } else {
         int base = has_parent_dir() ? 1 : 0;
         int total = count;
@@ -567,14 +594,14 @@ void disk_ui_render(uint8_t *framebuffer) {
 
             bool selected = (ui_idx == selected_file);
             if (has_parent_dir() && ui_idx == 0) {
-                draw_menu_item(framebuffer, content_x, y,
+                draw_menu_item(content_x, y,
                                content_width - 8, "..",
                                max_chars - 2, selected);
             } else {
                 int real = ui_idx - base;
                 const disk_entry_t *e = disk_loader_get_entry(real);
                 if (!e) continue;
-                draw_menu_item(framebuffer, content_x, y,
+                draw_menu_item(content_x, y,
                                content_width - 8, e->name,
                                max_chars - 2, selected);
             }
@@ -584,10 +611,10 @@ void disk_ui_render(uint8_t *framebuffer) {
 
     // Draw footer
     int footer_y = UI_Y + UI_HEIGHT - LINE_HEIGHT - 4;
-    draw_string(framebuffer, content_x, footer_y, "[Up/Dn] Select [Enter] Load [F11] Cancel", COLOR_TEXT);
+    draw_string(content_x, footer_y, "[Up/Dn] Select [Enter] Load [F11] Cancel", COLOR_TEXT);
 
     // If in action selection mode, draw the action dialog on top
     if (ui_state == DISK_UI_SELECT_ACTION) {
-        draw_action_dialog(framebuffer);
+        draw_action_dialog();
     }
 }

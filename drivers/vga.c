@@ -43,9 +43,6 @@ static int visible_line_size = 320;
 static int dma_chan_ctrl;
 static int dma_chan;
 
-static uint8_t *graphics_buffer = NULL;
-static volatile uint8_t *graphics_pending_buffer = NULL;
-
 static uint graphics_buffer_width = 0;
 static uint graphics_buffer_height = 0;
 
@@ -67,28 +64,13 @@ uint32_t __not_in_flash() get_frame_count(void) {
     return graphics_frame_count;
 }
 
-void graphics_set_buffer(uint8_t *buffer) {
-    graphics_buffer = buffer;
-}
-
-uint8_t* __scratch_x() graphics_get_buffer() {
-    return graphics_buffer;
-}
-
-void graphics_request_buffer_swap(uint8_t *buffer) {
-    graphics_pending_buffer = buffer;
-}
-
 void __scratch_x() vsync_handler() {
     // Called from DMA IRQ at frame boundary.
     graphics_frame_count++;
-    uint8_t *pending = (uint8_t *)graphics_pending_buffer;
-    if (pending) {
-        graphics_buffer = pending;
-        graphics_pending_buffer = NULL;
-    }
 }
 
+extern uint8_t* graphics_get_buffer_line(int y);
+extern uint32_t __led_state;
 
 void __time_critical_func() dma_handler_VGA() {
     dma_hw->ints0 = 1u << dma_chan_ctrl;
@@ -154,10 +136,19 @@ void __time_critical_func() dma_handler_VGA() {
     uint16_t* current_palette = palette[screen_line & 1];
 
     // 8-bit buf
-    register uint8_t* input_buffer = graphics_get_buffer() + y * SCREEN_WIDTH;
-    for (register int x = SCREEN_WIDTH; x--;) {
-        *output_buffer_16bit++ = current_palette[*input_buffer];
-        input_buffer++;
+    register uint8_t* input_buffer = graphics_get_buffer_line(y);
+    if (y >= 5 && y < 10 && (__led_state & 0xFF)) {
+        // drive0 in error -> red
+        uint16_t v = current_palette[(__led_state & 0x04) ? 2 /*RED*/ : 5 /*GREEN*/]; // TODO: blinking
+        for (register int x = SCREEN_WIDTH; x--;) {
+            *output_buffer_16bit++ = (x >= 5 && x < 10) ? v : current_palette[*input_buffer];
+            input_buffer++;
+        }
+    } else {
+        for (register int x = SCREEN_WIDTH; x--;) {
+            *output_buffer_16bit++ = current_palette[*input_buffer];
+            input_buffer++;
+        }
     }
     dma_channel_set_read_addr(dma_chan_ctrl, output_buffer, false);
 }

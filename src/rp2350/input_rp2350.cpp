@@ -543,7 +543,7 @@ inline static uint8_t map_nes_to_c64(uint32_t pad) {
     return joy;
 }
 
-void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joystick)
+void input_rp2350_poll_no_c64_acts()
 {
     constexpr uint8_t MOD_LSHIFT = 0x02;
     constexpr uint8_t MOD_RSHIFT = 0x20;
@@ -642,10 +642,10 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
                         int action = disk_ui_get_action();
                         const char *path = disk_loader_get_path(sel);
                         if (path) {
-                            c64_unmount_disk();
-                            c64_eject_cartridge();
                             if (action == 0) {
                                 // Load (run the disk/PRG)
+                                c64_unmount_disk();
+                                c64_eject_cartridge();
                                 MII_DEBUG_PRINTF("Loading disk: %s\n", path);
                                 c64_load_file(path);
                             } else {
@@ -969,6 +969,11 @@ void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joysti
         input_state.joystick1 = gamepad1_joy;  // Port 1 ($DC01)
         input_state.joystick2 = gamepad2_joy;  // Port 2 ($DC00)
     }
+}
+
+void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joystick)
+{
+    input_rp2350_poll_no_c64_acts();
 
     // Return state
     memcpy(key_matrix, input_state.key_matrix, 8);

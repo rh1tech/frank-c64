@@ -24,7 +24,9 @@
 #include "hardware/vreg.h"
 #include "hardware/gpio.h"
 #include "hardware/watchdog.h"
+#if PICO_RP2350
 #include "hardware/structs/qmi.h"
+#endif
 
 // Drivers
 #include "HDMI.h"
@@ -81,23 +83,12 @@ void disk_loader_scan(void);
 }
 #endif
 
-// Global framebuffer pointers (used by Display_rp2350.cpp)
-uint8_t *current_framebuffer = NULL;
-volatile int current_fb_index = 0;
-uint8_t *framebuffers[2] = { NULL, NULL };
-
 //=============================================================================
 // Global State
 //=============================================================================
 
 static volatile bool g_emulator_ready = false;
 static volatile bool g_quit_requested = false;
-
-// Double-buffered framebuffers (in SRAM for fast DMA access)
-static uint8_t __attribute__((aligned(4))) g_framebuffer_a[FB_WIDTH * FB_HEIGHT];
-static uint8_t __attribute__((aligned(4))) g_framebuffer_b[FB_WIDTH * FB_HEIGHT];
-static uint8_t *g_front_buffer = g_framebuffer_a;
-static uint8_t *g_back_buffer = g_framebuffer_b;
 
 //=============================================================================
 // Core 1: Video Rendering Task
@@ -154,6 +145,7 @@ static void core1_video_task(void) {
 //=============================================================================
 
 // Flash timing configuration for overclocking
+#if PICO_RP2350
 #ifndef FLASH_MAX_FREQ_MHZ
 #define FLASH_MAX_FREQ_MHZ 88
 #endif
@@ -176,23 +168,26 @@ static void __no_inline_not_in_flash_func(set_flash_timings)(int cpu_mhz) {
                         rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
                         divisor << QMI_M0_TIMING_CLKDIV_LSB;
 }
+#endif
 
 static void __no_inline_not_in_flash_func(init_clocks)(void) {
     // Overclock BEFORE stdio_init_all() - matching murmgenesis approach
-#if CPU_CLOCK_MHZ > 252
     // Disable voltage limit for high voltages (>1.50V)
     vreg_disable_voltage_limit();
+    sleep_ms(10);
+#if CPU_CLOCK_MHZ > 252
+#if PICO_RP2350
     vreg_set_voltage(CPU_VOLTAGE);
     // Set flash timings before changing clock
     set_flash_timings(CPU_CLOCK_MHZ);
-    sleep_ms(100);  // Let voltage stabilize (longer delay for high voltage)
+#else
+    hw_set_bits(&vreg_and_chip_reset_hw->vreg,
+                VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
 #endif
-
+#endif
+    sleep_ms(33);  // Let voltage stabilize (longer delay for high voltage)
     // Set system clock
-    if (!set_sys_clock_khz(CPU_CLOCK_MHZ * 1000, false)) {
-        // Fallback to safe speed if requested speed fails
-        set_sys_clock_khz(252 * 1000, true);
-    }
+    set_sys_clock_khz(CPU_CLOCK_MHZ * 1000, true);
 }
 
 static void __no_inline_not_in_flash_func(init_stdio)(void) {
@@ -243,6 +238,7 @@ static void __no_inline_not_in_flash_func(init_stdio)(void) {
 #endif
 }
 
+#if PICO_RP2350
 static void init_psram(void) {
     MII_DEBUG_PRINTF("Initializing PSRAM...\n");
 
@@ -264,6 +260,7 @@ static void init_psram(void) {
     // Reset PSRAM allocator
     psram_reset();
 }
+#endif
 
 static void init_graphics(void) {
     MII_DEBUG_PRINTF("Initializing HDMI graphics...\n");
@@ -282,14 +279,6 @@ static void init_graphics(void) {
     // Set resolution
     MII_DEBUG_PRINTF("  Setting resolution %dx%d...\n", FB_WIDTH, FB_HEIGHT);
     graphics_set_res(FB_WIDTH, FB_HEIGHT);
-
-    // Set initial framebuffer
-    MII_DEBUG_PRINTF("  Setting initial framebuffer at %p...\n", (void*)g_front_buffer);
-    graphics_set_buffer(g_front_buffer);
-
-    // Clear framebuffers to black
-    memset(g_framebuffer_a, 0, sizeof(g_framebuffer_a));
-    memset(g_framebuffer_b, 0, sizeof(g_framebuffer_b));
 
     MII_DEBUG_PRINTF("Graphics initialized: %dx%d\n", FB_WIDTH, FB_HEIGHT);
 }
@@ -412,7 +401,7 @@ void hard_fault_handler_c(uint32_t *stack) {
     uint32_t lr = stack[5];
     uint32_t pc = stack[6];
     uint32_t psr = stack[7];
-
+/*
     printf("\n!!! HARD FAULT !!!\n");
     printf("PC=0x%08lX LR=0x%08lX PSR=0x%08lX\n",
            (unsigned long)pc, (unsigned long)lr, (unsigned long)psr);
@@ -420,11 +409,22 @@ void hard_fault_handler_c(uint32_t *stack) {
            (unsigned long)r0, (unsigned long)r1, (unsigned long)r2, (unsigned long)r3);
     printf("R12=0x%08lX SP=0x%08lX\n",
            (unsigned long)r12, (unsigned long)(uint32_t)stack);
-
+*/
     // Blink LED or hang forever
+#ifdef PICO_DEFAULT_LED_PIN
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    while (1) {
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        sleep_ms(100);
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        sleep_ms(100);
+    }
+#else
     while (1) {
         tight_loop_contents();
     }
+#endif
 }
 
 //=============================================================================
@@ -467,16 +467,13 @@ static void check_stack(const char *location) {
 //=============================================================================
 // Main Emulator Loop
 //=============================================================================
+bool disk_ui_is_visible(void);
+void disk_ui_render();
+void input_rp2350_poll_no_c64_acts();
 
 static void emulator_main_loop(void) {
     MII_DEBUG_PRINTF("Starting C64 emulator...\n");
     check_stack("emulator_main_loop start");
-
-    // Set up framebuffer globals for Display_rp2350.cpp
-    framebuffers[0] = g_framebuffer_a;
-    framebuffers[1] = g_framebuffer_b;
-    current_framebuffer = g_back_buffer;
-    current_fb_index = 1;
 
     // Initialize C64 emulator
     MII_DEBUG_PRINTF("Calling c64_init()...\n");
@@ -490,38 +487,39 @@ static void emulator_main_loop(void) {
     // Main emulation loop
     uint32_t frame_count = 0;
     uint32_t total_frames = 0;
-    bool first_frame = true;
+//    bool first_frame = true;
     uint32_t last_time = rp2350_get_ticks_ms();
 
     // Frame timing: PAL = 50 Hz = 20000 us per frame
     const uint32_t FRAME_TIME_US = 20000;
     uint64_t next_frame_time = rp2350_get_ticks_us();
 
+#ifdef PICO_DEFAULT_LED_PIN
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+    for (int i = 0; i < 6; i++) {
+        sleep_ms(33);
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        sleep_ms(33);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+    }
+#endif
     // Watchdog DISABLED for debugging
     // watchdog_enable(2000, true);
 
     while (!g_quit_requested) {
-        // Feed watchdog at start of each frame
-        // watchdog_update();
+        if (!disk_ui_is_visible()) {
+            // Run one frame of C64 emulation
+          //  if (first_frame) MII_DEBUG_PRINTF("Running first frame...\n");
+            c64_run_frame();
+          //  if (first_frame) { MII_DEBUG_PRINTF("First frame done\n"); first_frame = false; }
 
-        // Run one frame of C64 emulation
-        if (first_frame) MII_DEBUG_PRINTF("Running first frame...\n");
-        c64_run_frame();
-        if (first_frame) { MII_DEBUG_PRINTF("First frame done\n"); first_frame = false; }
-
-        // Swap framebuffers
-        uint8_t *temp = g_front_buffer;
-        g_front_buffer = g_back_buffer;
-        g_back_buffer = temp;
-        current_fb_index = (current_fb_index + 1) % 2;
-        current_framebuffer = g_back_buffer;
-
-        // Request buffer swap at next vsync (thread-safe)
-        graphics_request_buffer_swap(g_front_buffer);
-
-        // Update audio (SID -> I2S)
-        sid_i2s_update();
-
+            // Update audio (SID -> I2S)
+            sid_i2s_update();
+        } else {
+            input_rp2350_poll_no_c64_acts();
+            disk_ui_render();
+        }
         frame_count++;
         total_frames++;
 
@@ -560,6 +558,7 @@ static void emulator_main_loop(void) {
     watchdog_disable();
 }
 
+
 //=============================================================================
 // Main Entry Point
 //=============================================================================
@@ -567,17 +566,6 @@ static void emulator_main_loop(void) {
 int main(void) {
     // Initialize system clocks first
     init_clocks();
-
-#ifdef PICO_DEFAULT_LED_PIN
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-    for (int i = 0; i < 6; i++) {
-        sleep_ms(33);
-        gpio_put(PICO_DEFAULT_LED_PIN, true);
-        sleep_ms(33);
-        gpio_put(PICO_DEFAULT_LED_PIN, false);
-    }
-#endif
 
     // Initialize stdio for debug output
     init_stdio();
@@ -598,10 +586,6 @@ int main(void) {
     multicore_launch_core1(core1_video_task);
     sleep_ms(100);  // Let Core 1 initialize HDMI IRQ
 #endif
-
-    // Initialize framebuffer pointers for double buffering (needed by startscreen)
-    framebuffers[0] = g_framebuffer_a;
-    framebuffers[1] = g_framebuffer_b;
 
     // Show start screen with system information
     {

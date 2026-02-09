@@ -25,8 +25,15 @@
 //=============================================================================
 // Configuration
 //=============================================================================
-
-#define MAX_DISK_IMAGES     100
+#if PICO_RP2350
+    #define MAX_DISK_IMAGES (100)
+#else
+    #if VIDEO_HDMI
+        #define MAX_DISK_IMAGES (40)
+    #else
+        #define MAX_DISK_IMAGES (80)
+    #endif
+#endif
 #define MAX_FILENAME_LEN    64
 #define DEFAULT_SCAN_PATH   "/c64"
 
@@ -48,7 +55,7 @@ static struct {
     disk_entry_t entries[MAX_DISK_IMAGES];
     int count;
     bool initialized;
-} disk_loader;
+} disk_loader; // sizeof(disk_loader) == 7208 (in case MAX_DISK_IMAGES=100)
 
 char current_scan_path[128] = DEFAULT_SCAN_PATH;
 

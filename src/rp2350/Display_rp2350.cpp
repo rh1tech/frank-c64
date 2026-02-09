@@ -20,17 +20,11 @@ extern "C" {
 #include "pico/stdlib.h"
 #include "HDMI.h"
 
-// External framebuffers from main_rp2350.c
-extern uint8_t *current_framebuffer;
-extern volatile int current_fb_index;
-extern uint8_t *framebuffers[2];
-
 // Input functions
 void input_rp2350_poll(uint8_t *key_matrix, uint8_t *rev_matrix, uint8_t *joystick);
 
 // Disk UI functions
 bool disk_ui_is_visible(void);
-void disk_ui_render(uint8_t *framebuffer);
 }
 
 #include <cstring>
@@ -79,17 +73,21 @@ static const uint32_t colodore_palette[16] = {
 /*
  *  Constructor
  */
+extern "C" uint32_t __led_state;
+uint32_t __led_state = 0;
+static uint8_t* led_state = (uint8_t*)&__led_state; // Drive LED states
+// Allocate VIC pixel buffer in SRAM (384 x 272 = 104448 bytes)
+uint8_t g_pixels[DISPLAY_X * DISPLAY_Y];
+// Source: VIC buffer (384x272, 8-bit indexed color)
+// Dest: HDMI framebuffer (320x240, 8-bit indexed color)
+extern "C" uint8_t* __not_in_flash() graphics_get_buffer_line(int y) {
+    return g_pixels + C64_CROP_LEFT + (y + C64_CROP_TOP) * DISPLAY_X;
+}
 
 Display::Display(C64 * c64)
     : the_c64(c64), next_note(0), num_locked(false)
 {
-    // Allocate VIC pixel buffer in SRAM (384 x 272 = 104448 bytes)
-    vic_pixels = (uint8_t*)malloc(DISPLAY_X * DISPLAY_Y);
-    if (!vic_pixels) {
-        MII_DEBUG_PRINTF("ERROR: Failed to allocate VIC pixel buffer\n");
-        // Fall back to a smaller buffer if PSRAM fails
-        vic_pixels = new uint8_t[DISPLAY_X * DISPLAY_Y];
-    }
+    vic_pixels = g_pixels;
     memset(vic_pixels, 0, DISPLAY_X * DISPLAY_Y);
 
     // Initialize LED states
@@ -118,10 +116,6 @@ Display::Display(C64 * c64)
 
 Display::~Display()
 {
-    if (vic_pixels) {
-        free(vic_pixels);
-        vic_pixels = nullptr;
-    }
 }
 
 
@@ -208,25 +202,20 @@ int Display::BitmapXMod()
 
 void Display::scale_to_hdmi()
 {
-    if (!vic_pixels || !current_framebuffer) {
+#if 0
+    if (!current_framebuffer) {
         return;
     }
 
-    // Source: VIC buffer (384x272, 8-bit indexed color)
-    // Dest: HDMI framebuffer (320x240, 8-bit indexed color)
-
-    // Crop offsets
-    const int src_x_offset = C64_CROP_LEFT;   // 32
-    const int src_y_offset = C64_CROP_TOP;    // 16
-
     // Copy with cropping (no scaling, direct copy of center region)
     for (int y = 0; y < FB_HEIGHT; y++) {
-        const uint8_t *src_row = vic_pixels + (y + src_y_offset) * DISPLAY_X + src_x_offset;
+        const uint8_t *src_row = g_pixels + C64_CROP_LEFT + (y + C64_CROP_TOP) * DISPLAY_X;
         uint8_t *dst_row = current_framebuffer + y * FB_WIDTH;
 
         // Copy 320 pixels
         memcpy(dst_row, src_row, FB_WIDTH);
     }
+#endif
 }
 
 
@@ -236,6 +225,8 @@ void Display::scale_to_hdmi()
 
 void Display::draw_overlays()
 {
+#if 0
+    if (!current_framebuffer) return;
     // Draw drive LEDs in top-right corner
     if (led_state[0] || led_state[1]) {
         // Simple LED indicator - draw a small rectangle
@@ -273,6 +264,7 @@ void Display::draw_overlays()
             }
         }
     }
+#endif
 }
 
 
@@ -282,18 +274,6 @@ void Display::draw_overlays()
 
 void Display::Update()
 {
-    // Scale/crop VIC output to HDMI framebuffer
-    scale_to_hdmi();
-
-    // Draw overlays on top
-    draw_overlays();
-
-    // Draw disk UI if visible
-    if (disk_ui_is_visible()) {
-        disk_ui_render(current_framebuffer);
-    }
-
-    // The framebuffer swap is handled by the video task on Core 1
 }
 
 

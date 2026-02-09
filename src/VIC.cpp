@@ -776,155 +776,410 @@ void MOS6569::TriggerLightpen()
 
 inline void MOS6569::el_std_text(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
-	unsigned int b0cc = b0c;
-	uint32_t *lp = (uint32_t *)p;
-	uint8_t *cp = color_line;
-	uint8_t *mp = matrix_line;
+    const unsigned int b0cc = b0c;
+    uint8_t *cp = color_line;
+    uint8_t *mp = matrix_line;
 
-	// Loop for 40 characters
-	for (int i=0; i<40; i++) {
-		uint8_t color = cp[i];
-		uint8_t data = r[i] = q[mp[i] << 3];
+    if (((uintptr_t)p & 3) == 0) {
+        uint32_t *lp = (uint32_t*)p;
 
-		*lp++ = TEXT_COLOR(color, b0cc, data, 0);
-		*lp++ = TEXT_COLOR(color, b0cc, data, 1);
-	}
+        for (int i = 0; i < 40; i += 2) {
+            // ---- char 0 ----
+            uint8_t c0 = *cp++;
+            uint8_t m0 = *mp++;
+            uint8_t d0 = *r++ = q[m0 << 3];
+
+            uint32_t o00 = TEXT_COLOR(c0, b0cc, d0, 0);
+            uint32_t o01 = TEXT_COLOR(c0, b0cc, d0, 1);
+
+            *lp++ = o00;
+            *lp++ = o01;
+
+            // ---- char 1 ----
+            uint8_t c1 = *cp++;
+            uint8_t m1 = *mp++;
+            uint8_t d1 = *r++ = q[m1 << 3];
+
+            uint32_t o10 = TEXT_COLOR(c1, b0cc, d1, 0);
+            uint32_t o11 = TEXT_COLOR(c1, b0cc, d1, 1);
+
+            *lp++ = o10;
+            *lp++ = o11;
+        }
+    } else {
+        for (int i = 0; i < 40; i += 2) {
+            // ---- char 0 ----
+            uint8_t c0 = *cp++;
+            uint8_t m0 = *mp++;
+            uint8_t d0 = *r++ = q[m0 << 3];
+
+            uint32_t o00 = TEXT_COLOR(c0, b0cc, d0, 0);
+            uint32_t o01 = TEXT_COLOR(c0, b0cc, d0, 1);
+
+            p[0] = (uint8_t)o00;
+            p[1] = (uint8_t)(o00 >> 8);
+            p[2] = (uint8_t)(o00 >> 16);
+            p[3] = (uint8_t)(o00 >> 24);
+            p[4] = (uint8_t)o01;
+            p[5] = (uint8_t)(o01 >> 8);
+            p[6] = (uint8_t)(o01 >> 16);
+            p[7] = (uint8_t)(o01 >> 24);
+            p += 8;
+
+            // ---- char 1 ----
+            uint8_t c1 = *cp++;
+            uint8_t m1 = *mp++;
+            uint8_t d1 = *r++ = q[m1 << 3];
+
+            uint32_t o10 = TEXT_COLOR(c1, b0cc, d1, 0);
+            uint32_t o11 = TEXT_COLOR(c1, b0cc, d1, 1);
+
+            p[0] = (uint8_t)o10;
+            p[1] = (uint8_t)(o10 >> 8);
+            p[2] = (uint8_t)(o10 >> 16);
+            p[3] = (uint8_t)(o10 >> 24);
+            p[4] = (uint8_t)o11;
+            p[5] = (uint8_t)(o11 >> 8);
+            p[6] = (uint8_t)(o11 >> 16);
+            p[7] = (uint8_t)(o11 >> 24);
+            p += 8;
+        }
+    }
 }
 
+static inline void store16(uint8_t *dst, uint16_t v)
+{
+    dst[0] = (uint8_t)v;
+    dst[1] = (uint8_t)(v >> 8);
+}
 
 inline void MOS6569::el_mc_text(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
-	uint16_t *wp = (uint16_t *)p;
-	uint8_t *cp = color_line;
-	uint8_t *mp = matrix_line;
-	uint16_t *mclp = mc_color_lookup;
+    uint8_t *cp = color_line;
+    uint8_t *mp = matrix_line;
+    uint16_t *mclp = mc_color_lookup;
 
-	// Loop for 40 characters
-	for (unsigned i = 0; i < 40; ++i) {
-		uint8_t data = q[mp[i] << 3];
+    // fast path: p выровнен по 4
+    if (((uintptr_t)p & 3) == 0) {
+        uint32_t *lp = (uint32_t*)p;
 
-		if (cp[i] & 8) {
-			uint8_t color = colors[cp[i] & 7];
-			r[i] = (data & 0xaa) | (data & 0xaa) >> 1;
-			mclp[3] = color | (color << 8);
-			*wp++ = mclp[(data >> 6) & 3];
-			*wp++ = mclp[(data >> 4) & 3];
-			*wp++ = mclp[(data >> 2) & 3];
-			*wp++ = mclp[(data >> 0) & 3];
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t data = q[mp[i] << 3];
 
-		} else { // Standard mode in multicolor mode
-			uint8_t color = cp[i];
-			r[i] = data;
-			*(uint32_t *)wp = TEXT_COLOR(color, b0c, data, 0);
-			wp += 2;
-			*(uint32_t *)wp = TEXT_COLOR(color, b0c, data, 1);
-			wp += 2;
-		}
-	}
+            if (cp[i] & 8) {
+                uint8_t color = colors[cp[i] & 7];
+                r[i] = (data & 0xaa) | ((data & 0xaa) >> 1);
+
+                uint16_t c = color | (color << 8);
+                mclp[3] = c;
+
+                // 4 halfwords = 2 words
+                uint32_t w0 =
+                    (uint32_t)mclp[(data >> 6) & 3] |
+                    ((uint32_t)mclp[(data >> 4) & 3] << 16);
+
+                uint32_t w1 =
+                    (uint32_t)mclp[(data >> 2) & 3] |
+                    ((uint32_t)mclp[(data >> 0) & 3] << 16);
+
+                *lp++ = w0;
+                *lp++ = w1;
+
+            } else {
+                uint8_t color = cp[i];
+                r[i] = data;
+
+                *lp++ = TEXT_COLOR(color, b0c, data, 0);
+                *lp++ = TEXT_COLOR(color, b0c, data, 1);
+            }
+        }
+
+    } else {
+        // safe path: байтовые записи
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t data = q[mp[i] << 3];
+
+            if (cp[i] & 8) {
+                uint8_t color = colors[cp[i] & 7];
+                r[i] = (data & 0xaa) | ((data & 0xaa) >> 1);
+
+                uint16_t c = color | (color << 8);
+                mclp[3] = c;
+
+                store16(p,     mclp[(data >> 6) & 3]);
+                store16(p + 2, mclp[(data >> 4) & 3]);
+                store16(p + 4, mclp[(data >> 2) & 3]);
+                store16(p + 6, mclp[(data >> 0) & 3]);
+                p += 8;
+
+            } else {
+                uint8_t color = cp[i];
+                r[i] = data;
+
+                uint32_t c0 = TEXT_COLOR(color, b0c, data, 0);
+                uint32_t c1 = TEXT_COLOR(color, b0c, data, 1);
+
+                p[0] = (uint8_t)c0;
+                p[1] = (uint8_t)(c0 >> 8);
+                p[2] = (uint8_t)(c0 >> 16);
+                p[3] = (uint8_t)(c0 >> 24);
+                p[4] = (uint8_t)c1;
+                p[5] = (uint8_t)(c1 >> 8);
+                p[6] = (uint8_t)(c1 >> 16);
+                p[7] = (uint8_t)(c1 >> 24);
+                p += 8;
+            }
+        }
+    }
 }
 
 
 inline void MOS6569::el_std_bitmap(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
-	uint32_t *lp = (uint32_t *)p;
-	uint8_t *mp = matrix_line;
+    uint8_t *mp = matrix_line;
 
-	// Loop for 40 characters
-	for (unsigned i = 0; i < 40; ++i, q += 8) {
-		uint8_t data = r[i] = *q;
-		uint8_t color = mp[i] >> 4;
-		uint8_t bcolor = mp[i] & 15;
+    if (((uintptr_t)p & 3) == 0) {
+        // fast path: выровненный вывод
+        uint32_t *lp = (uint32_t*)p;
 
-		*lp++ = TEXT_COLOR(color, bcolor, data, 0);
-		*lp++ = TEXT_COLOR(color, bcolor, data, 1);
-	}
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t data   = r[i] = *q;
+            uint8_t colors = mp[i];
+            uint8_t color  = colors >> 4;
+            uint8_t bcolor = colors & 0x0f;
+
+            *lp++ = TEXT_COLOR(color, bcolor, data, 0);
+            *lp++ = TEXT_COLOR(color, bcolor, data, 1);
+
+            q += 8;
+        }
+
+    } else {
+        // safe path: байтовая запись
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t data   = r[i] = *q;
+            uint8_t colors = mp[i];
+            uint8_t color  = colors >> 4;
+            uint8_t bcolor = colors & 0x0f;
+
+            uint32_t c0 = TEXT_COLOR(color, bcolor, data, 0);
+            uint32_t c1 = TEXT_COLOR(color, bcolor, data, 1);
+
+            p[0] = (uint8_t)c0;
+            p[1] = (uint8_t)(c0 >> 8);
+            p[2] = (uint8_t)(c0 >> 16);
+            p[3] = (uint8_t)(c0 >> 24);
+            p[4] = (uint8_t)c1;
+            p[5] = (uint8_t)(c1 >> 8);
+            p[6] = (uint8_t)(c1 >> 16);
+            p[7] = (uint8_t)(c1 >> 24);
+
+            p += 8;
+            q += 8;
+        }
+    }
 }
 
 
 inline void MOS6569::el_mc_bitmap(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
-	uint16_t lookup[4];
-	uint16_t *wp = (uint16_t *)p - 1;
-	uint8_t *cp = color_line;
-	uint8_t *mp = matrix_line;
+    uint8_t *cp = color_line;
+    uint8_t *mp = matrix_line;
 
-	lookup[0] = (b0c_color << 8) | b0c_color;
+    // fast path: p выровнен по 4
+    if (((uintptr_t)p & 3) == 0) {
+        uint32_t *lp = (uint32_t*)p;
 
-	// Loop for 40 characters
-	for (unsigned i = 0; i < 40; ++i, q+=8) {
-		uint8_t color, acolor, bcolor;
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t m = mp[i];
+            uint8_t c0 = b0c_color;
+            uint8_t c1 = colors[m >> 4];
+            uint8_t c2 = colors[m & 0x0f];
+            uint8_t c3 = colors[cp[i]];
 
-		color = colors[mp[i] >> 4];
-		lookup[1] = (color << 8) | color;
-		bcolor = colors[mp[i]];
-		lookup[2] = (bcolor << 8) | bcolor;
-		acolor = colors[cp[i]];
-		lookup[3] = (acolor << 8) | acolor;
+            uint16_t l0 = (c0 << 8) | c0;
+            uint16_t l1 = (c1 << 8) | c1;
+            uint16_t l2 = (c2 << 8) | c2;
+            uint16_t l3 = (c3 << 8) | c3;
 
-		uint8_t data = *q;
-		r[i] = (data & 0xaa) | (data & 0xaa) >> 1;
+            uint8_t data = *q;
+            r[i] = (data & 0xaa) | ((data & 0xaa) >> 1);
 
-		*++wp = lookup[(data >> 6) & 3];
-		*++wp = lookup[(data >> 4) & 3];
-		*++wp = lookup[(data >> 2) & 3];
-		*++wp = lookup[(data >> 0) & 3];
-	}
+            uint32_t w0 =
+                (uint32_t)( (data >> 6) & 3 ? ( (data >> 6) & 3 ) == 1 ? l1 :
+                                              ( (data >> 6) & 3 ) == 2 ? l2 : l3
+                                            : l0 )
+                |
+                ((uint32_t)(
+                    ( (data >> 4) & 3 ) == 0 ? l0 :
+                    ( (data >> 4) & 3 ) == 1 ? l1 :
+                    ( (data >> 4) & 3 ) == 2 ? l2 : l3
+                ) << 16);
+
+            uint32_t w1 =
+                (uint32_t)(
+                    ( (data >> 2) & 3 ) == 0 ? l0 :
+                    ( (data >> 2) & 3 ) == 1 ? l1 :
+                    ( (data >> 2) & 3 ) == 2 ? l2 : l3
+                )
+                |
+                ((uint32_t)(
+                    (data & 3) == 0 ? l0 :
+                    (data & 3) == 1 ? l1 :
+                    (data & 3) == 2 ? l2 : l3
+                ) << 16);
+
+            *lp++ = w0;
+            *lp++ = w1;
+
+            q += 8;
+        }
+
+    } else {
+        // safe path: байтовая запись
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t m = mp[i];
+            uint8_t c0 = b0c_color;
+            uint8_t c1 = colors[m >> 4];
+            uint8_t c2 = colors[m & 0x0f];
+            uint8_t c3 = colors[cp[i]];
+
+            uint16_t lookup[4] = {
+                (uint16_t)((c0 << 8) | c0),
+                (uint16_t)((c1 << 8) | c1),
+                (uint16_t)((c2 << 8) | c2),
+                (uint16_t)((c3 << 8) | c3),
+            };
+
+            uint8_t data = *q;
+            r[i] = (data & 0xaa) | ((data & 0xaa) >> 1);
+
+            uint16_t v;
+
+            v = lookup[(data >> 6) & 3]; p[0] = v; p[1] = v >> 8;
+            v = lookup[(data >> 4) & 3]; p[2] = v; p[3] = v >> 8;
+            v = lookup[(data >> 2) & 3]; p[4] = v; p[5] = v >> 8;
+            v = lookup[(data >> 0) & 3]; p[6] = v; p[7] = v >> 8;
+
+            p += 8;
+            q += 8;
+        }
+    }
 }
 
 
 inline void MOS6569::el_ecm_text(uint8_t *p, const uint8_t *q, uint8_t *r)
 {
-	uint32_t *lp = (uint32_t *)p;
-	uint8_t *cp = color_line;
-	uint8_t *mp = matrix_line;
-	uint8_t *bcp = &b0c;
+    uint8_t *cp  = color_line;
+    uint8_t *mp  = matrix_line;
+    uint8_t *bcp = &b0c;
 
-	// Loop for 40 characters
-	for (unsigned i = 0; i < 40; ++i) {
-		uint8_t data = r[i] = mp[i];
-		uint8_t color = cp[i];
-		uint8_t bcolor = bcp[(data >> 6) & 3];
+    if (((uintptr_t)p & 3) == 0) {
+        // fast path: выровненный вывод
+        uint32_t *lp = (uint32_t*)p;
 
-		data = q[(data & 0x3f) << 3];
-		*lp++ = TEXT_COLOR(color, bcolor, data, 0);
-		*lp++ = TEXT_COLOR(color, bcolor, data, 1);
-	}
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t data   = r[i] = mp[i];
+            uint8_t color  = cp[i];
+            uint8_t bcolor = bcp[(data >> 6) & 3];
+
+            uint8_t glyph = q[(data & 0x3f) << 3];
+
+            *lp++ = TEXT_COLOR(color, bcolor, glyph, 0);
+            *lp++ = TEXT_COLOR(color, bcolor, glyph, 1);
+        }
+
+    } else {
+        // safe path: байтовая запись
+        for (unsigned i = 0; i < 40; ++i) {
+            uint8_t data   = r[i] = mp[i];
+            uint8_t color  = cp[i];
+            uint8_t bcolor = bcp[(data >> 6) & 3];
+
+            uint8_t glyph = q[(data & 0x3f) << 3];
+
+            uint32_t c0 = TEXT_COLOR(color, bcolor, glyph, 0);
+            uint32_t c1 = TEXT_COLOR(color, bcolor, glyph, 1);
+
+            p[0] = (uint8_t)c0;
+            p[1] = (uint8_t)(c0 >> 8);
+            p[2] = (uint8_t)(c0 >> 16);
+            p[3] = (uint8_t)(c0 >> 24);
+            p[4] = (uint8_t)c1;
+            p[5] = (uint8_t)(c1 >> 8);
+            p[6] = (uint8_t)(c1 >> 16);
+            p[7] = (uint8_t)(c1 >> 24);
+
+            p += 8;
+        }
+    }
 }
 
 
 inline void MOS6569::el_std_idle(uint8_t *p, uint8_t *r)
 {
 	uint8_t data = *get_physical(ctrl1 & 0x40 ? 0x39ff : 0x3fff);
-	uint32_t *lp = (uint32_t *)p;
 	uint32_t conv0 = TEXT_COLOR(0, b0c, data, 0);
 	uint32_t conv1 = TEXT_COLOR(0, b0c, data, 1);
 
-	for (unsigned i = 0; i < 40; ++i) {
-		*lp++ = conv0;
-		*lp++ = conv1;
-		*r++ = data;
+	if (((uintptr_t)p & 3) == 0) {
+		uint32_t *lp = (uint32_t*)p;
+		for (unsigned i = 0; i < 40; ++i) {
+			*lp++ = conv0;
+			*lp++ = conv1;
+			*r++ = data;
+		}
+	} else {
+		uint8_t *bp = p;
+		for (unsigned i = 0; i < 40; ++i) {
+			memcpy(bp, &conv0, 4);
+			memcpy(bp + 4, &conv1, 4);
+			bp += 8;
+			*r++ = data;
+		}
 	}
 }
 
 
 inline void MOS6569::el_mc_idle(uint8_t *p, uint8_t *r)
 {
-	uint8_t data = *get_physical(0x3fff);
-	uint32_t *lp = (uint32_t *)p - 1;
-	r--;
+    uint8_t data = *get_physical(0x3fff);
 
-	uint16_t lookup[4];
-	lookup[0] = (b0c_color << 8) | b0c_color;
-	lookup[1] = lookup[2] = lookup[3] = colors[0];
+    // формируем lookup локально (быстро, в регистрах)
+    uint16_t lookup0 = (b0c_color << 8) | b0c_color;
+    uint16_t lookup1 = colors[0];
 
-	uint16_t conv0 = (lookup[(data >> 6) & 3] << 16) | lookup[(data >> 4) & 3];
-	uint16_t conv1 = (lookup[(data >> 2) & 3] << 16) | lookup[(data >> 0) & 3];
+    uint32_t conv0 =
+        ((uint32_t)lookup0 << 16) | lookup1;
+    uint32_t conv1 =
+        ((uint32_t)lookup1 << 16) | lookup1;
 
-	for (unsigned i = 0; i < 40; ++i) {
-		*++lp = conv0;
-		*++lp = conv1;
-		*++r = data;
-	}
+    // fast path: p выровнен по 4
+    if (((uintptr_t)p & 3) == 0) {
+        uint32_t *lp = (uint32_t*)p;
+
+        for (unsigned i = 0; i < 40; ++i) {
+            *lp++ = conv0;
+            *lp++ = conv1;
+            *r++  = data;
+        }
+
+    } else {
+        // safe path: байтовые записи
+        for (unsigned i = 0; i < 40; ++i) {
+            p[0] = (uint8_t)conv0;
+            p[1] = (uint8_t)(conv0 >> 8);
+            p[2] = (uint8_t)(conv0 >> 16);
+            p[3] = (uint8_t)(conv0 >> 24);
+            p[4] = (uint8_t)conv1;
+            p[5] = (uint8_t)(conv1 >> 8);
+            p[6] = (uint8_t)(conv1 >> 16);
+            p[7] = (uint8_t)(conv1 >> 24);
+            p += 8;
+
+            *r++ = data;
+        }
+    }
 }
 
 
@@ -1227,6 +1482,28 @@ spr_off:
 	return cycles_used;
 }
 
+static inline void fill_color32(uint8_t *dst, uint32_t color, size_t bytes)
+{
+    // предполагаем: bytes кратен 4
+    uintptr_t mis = (uintptr_t)dst & 3;
+
+    // 1) доводим до 4-байтового выравнивания
+    if (mis) {
+        size_t pre = 4 - mis;
+        // pre ∈ {1,2,3}
+        for (size_t i = 0; i < pre; ++i) {
+            *dst++ = (uint8_t)(color >> (8 * i));
+        }
+        bytes -= pre;
+    }
+
+    // 2) основной быстрый цикл — выровненные 32-битные store
+    uint32_t *p32 = (uint32_t*)dst;
+    size_t n32 = bytes >> 2;
+    for (size_t i = 0; i < n32; ++i) {
+        p32[i] = color;
+    }
+}
 
 /*
  *  Emulate one raster line.
@@ -1485,26 +1762,17 @@ unsigned MOS6569::EmulateLine(int & retCyclesLeft)
 
 			// Draw sprites
 			if (sprite_on) {
-
 				// Clear sprite collision buffer
-				uint32_t *lp = (uint32_t *)spr_coll_buf - 1;
-				for (unsigned i = 0; i < DISPLAY_X/4; ++i) {
-					*++lp = 0;
-				}
-
+				memset(spr_coll_buf, 0, DISPLAY_X);
 				el_sprites(chunky_ptr);
 			}
 
-			// Handle left/right border
-			uint32_t *lp = (uint32_t *)chunky_ptr - 1;
 			uint32_t c = ec_color_long;
-			for (unsigned i = 0; i < COL40_XSTART/4; ++i) {
-				*++lp = c;
-			}
-			lp = (uint32_t *)(chunky_ptr + COL40_XSTOP) - 1;
-			for (unsigned i = 0; i < (DISPLAY_X-COL40_XSTOP)/4; ++i) {
-				*++lp = c;
-			}
+			// Left border
+			fill_color32(chunky_ptr, c, COL40_XSTART);
+			// Right border
+			fill_color32(chunky_ptr + COL40_XSTOP, c, DISPLAY_X - COL40_XSTOP);
+
 			if (!border_40_col) {
 				c = ec_color;
 				p = chunky_ptr + COL40_XSTART - 1;
@@ -1548,13 +1816,8 @@ unsigned MOS6569::EmulateLine(int & retCyclesLeft)
 			}
 #endif
 		} else {
-
 			// Display border
-			uint32_t *lp = (uint32_t *)chunky_ptr - 1;
-			uint32_t c = ec_color_long;
-			for (unsigned i = 0; i < DISPLAY_X/4; ++i) {
-				*++lp = c;
-			}
+			fill_color32(chunky_ptr, ec_color_long, DISPLAY_X);
 		}
 
 		// Increment pointer in chunky buffer

@@ -18,13 +18,13 @@ cmake_minimum_required(VERSION 3.13)
 set(BUILD_NAME "murmc64")
 
 # Firmware version string (set by release.sh or manually)
-set(FIRMWARE_VERSION "v1.04" CACHE STRING "Firmware version string")
+set(FIRMWARE_VERSION "v1.05" CACHE STRING "Firmware version string")
 
 # Set board to Pico 2 (RP2350)
-set(PICO_BOARD pico2 CACHE STRING "Pico board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 # Board configuration variant (M1, M2, PC or Z0)
-set(BOARD_VARIANT "M2" CACHE STRING "Board variant: M1, M2 or PC")
+set(BOARD_VARIANT "M1" CACHE STRING "Board variant: M1, M2 or PC")
 
 # Video output type (VGA or HDMI)
 set(VIDEO_TYPE "VGA" CACHE STRING "Video output: VGA or HDMI")
@@ -48,14 +48,26 @@ elseif(VIDEO_TYPE STREQUAL "VGA")
     set(VIDEO_VGA ON)
 endif()
 
-if(BOARD_VARIANT STREQUAL "M1")
-    SET(BUILD_NAME "m1p2-${BUILD_NAME}")
-elseif(BOARD_VARIANT STREQUAL "PC")
-    SET(BUILD_NAME "PCp2-${BUILD_NAME}")
-elseif(BOARD_VARIANT STREQUAL "Z0")
-    SET(BUILD_NAME "z0p2-${BUILD_NAME}")
-else()  # M2
-    SET(BUILD_NAME "m2p2-${BUILD_NAME}")
+if(PICO_BOARD STREQUAL "pico")
+    if(BOARD_VARIANT STREQUAL "M1")
+        SET(BUILD_NAME "m1p1-${BUILD_NAME}")
+    elseif(BOARD_VARIANT STREQUAL "PC")
+        SET(BUILD_NAME "PCp1-${BUILD_NAME}")
+    elseif(BOARD_VARIANT STREQUAL "Z0")
+        SET(BUILD_NAME "z0p1-${BUILD_NAME}")
+    else()  # M2
+        SET(BUILD_NAME "m2p1-${BUILD_NAME}")
+    endif()
+else()
+    if(BOARD_VARIANT STREQUAL "M1")
+        SET(BUILD_NAME "m1p2-${BUILD_NAME}")
+    elseif(BOARD_VARIANT STREQUAL "PC")
+        SET(BUILD_NAME "PCp2-${BUILD_NAME}")
+    elseif(BOARD_VARIANT STREQUAL "Z0")
+        SET(BUILD_NAME "z0p2-${BUILD_NAME}")
+    else()  # M2
+        SET(BUILD_NAME "m2p2-${BUILD_NAME}")
+    endif()
 endif()
 
 IF(VIDEO_VGA)
@@ -65,10 +77,15 @@ IF(VIDEO_HDMI)
     SET(BUILD_NAME "${BUILD_NAME}-HDMI")
 endif ()
 
-if (PSRAM_SPEED)
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-P${PSRAM_SPEED}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+if(PICO_BOARD STREQUAL "pico")
+
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
 else()
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+    if (PSRAM_SPEED)
+        SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-P${PSRAM_SPEED}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+    else()
+        SET(BUILD_NAME "${BUILD_NAME}-${CPU_SPEED}MHz-F${FLASH_MAX_FREQ_MHZ}-${AUDIO_TYPE}-${FIRMWARE_VERSION}")
+    endif()
 endif()
 
 # CPU voltage selection based on speed
@@ -116,7 +133,7 @@ option(UART_ENABLED "Enable USB HID Host for keyboard/gamepad" OFF)
 # Use Frodo Lite (line-based) instead of Frodo SC (cycle-accurate) for better performance
 option(FRODO_LITE "Use Frodo Lite (line-based emulation)" ON)
 
-message(STATUS "MurmC64 - Commodore 64 Emulator (Frodo4) for RP2350")
+message(STATUS "MurmC64 - Commodore 64 Emulator (Frodo4) for RP2040/RP2350")
 if (PSRAM_SPEED)
     message(STATUS "Board: ${BOARD_VARIANT}, CPU: ${CPU_SPEED} MHz, PSRAM: ${PSRAM_SPEED} MHz, Voltage: ${CPU_VOLTAGE}")
 else()
@@ -254,10 +271,17 @@ add_executable(${BUILD_NAME}
     src/VIA.cpp
 )
 
-# MOS2 support: use custom linker script only for Murmulator OS builds
-# Non-MOS2 builds use the default Pico SDK linker script
-if(MOS2)
-    pico_set_linker_script(${BUILD_NAME} "${CMAKE_SOURCE_DIR}/memmap.mos2.ld")
+if (PICO_BOARD STREQUAL "pico")
+    pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
+    target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
+    pico_set_boot_stage2(${BUILD_NAME} slower_boot2)
+    unset(MOS2)
+else()
+    # MOS2 support: use custom linker script only for Murmulator OS builds
+    # Non-MOS2 builds use the default Pico SDK linker script
+    if(MOS2)
+        pico_set_linker_script(${BUILD_NAME} "${CMAKE_SOURCE_DIR}/memmap.mos2.ld")
+    endif()
 endif()
 
 # Frodo Lite (line-based) vs Frodo SC (cycle-accurate) emulation
