@@ -1,7 +1,7 @@
 /*
  *  Display_rp2350.h - C64 graphics display for RP2350
  *
- *  MurmC64 - Commodore 64 Emulator for RP2350
+ *  FRANK C64 - Commodore 64 Emulator for RP2350
  *  Copyright (c) 2024-2026 Mikhail Matveev <xtreme@rh1.tech>
  *
  *  This program is free software; you can redistribute it and/or modify

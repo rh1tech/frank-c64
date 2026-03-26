@@ -33,10 +33,5 @@ This project incorporates code from the following projects:
    Generic FAT Filesystem Module
    License: FatFs License (BSD-style)
 
-3. pico-extras (https://github.com/raspberrypi/pico-extras)
-   Copyright (C) 2020-2023 Raspberry Pi (Trading) Ltd.
-   Audio I2S and additional Pico SDK functionality
-   License: BSD 3-Clause
-
 The full text of the GNU GPL v2 license can be found at:
 https://www.gnu.org/licenses/old-licenses/gpl-2.0.html

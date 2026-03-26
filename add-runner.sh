@@ -17,7 +17,7 @@ set -e
 if [[ $# -lt 2 ]]; then
     echo "Usage: $0 <owner/repo> <registration_token>"
     echo ""
-    echo "Example: $0 rh1tech/murmc64 ABCDEFG123456"
+    echo "Example: $0 rh1tech/frank-c64 ABCDEFG123456"
     echo ""
     echo "Get a token with:"
     echo "  gh api --method POST repos/<owner>/<repo>/actions/runners/registration-token --jq .token"

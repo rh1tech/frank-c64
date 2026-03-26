@@ -16,10 +16,10 @@ Developer Machine                  GitHub                     Build Server
 └──────────────┘              │ triggered    │           │                     │
                               └──────┬───────┘           │ ~/pico-sdk/         │
                                      │                   │ ~/runners/          │
-                              ┌──────▼───────┐           │   ├── murmc64/      │
+                              ┌──────▼───────┐           │   ├── frank-c64/      │
                               │ GitHub       │<── .uf2 ──│   ├── murmduke3d/   │
-                              │ Release      │   .m1p2   │   └── ...           │
-                              │ created      │   .m2p2   └─────────────────────┘
+                              │ Release      │           │   └── ...           │
+                              │ created      │           └─────────────────────┘
                               └──────────────┘
 ```
 
@@ -77,7 +77,7 @@ When triggered by a `release:` commit on the `main` or `master` branch:
 
 1. **Checks out** the repository with submodules
 2. **Parses** the version from the first line of the commit message
-3. **Runs `release-ci.sh`** which builds all 40 firmware variants:
+3. **Runs `release-ci.sh`** which builds all 20 firmware variants:
 
 ### Build matrix
 
@@ -86,15 +86,14 @@ When triggered by a `release:` commit on the `main` or `master` branch:
 | Board | M1, M2 | 2 |
 | Video | VGA, HDMI | 2 |
 | Audio | I2S, PWM | 2 |
-| MOS2 | OFF (UF2), ON (m1p2/m2p2) | 2 |
 | CPU Speed | 378, 428 (VGA only), 504 MHz | 2–3 |
 
-**Total**: 40 variants (428 MHz only valid for VGA)
+**Total**: 20 variants (428 MHz only valid for VGA)
 
 ### Output filename convention
 
 ```
-murmc64_m<BOARD>_<video>_<audio>_<cpu>mhz_<MAJOR>_<MINOR>.<ext>
+frank-c64_m<BOARD>_<video>_<audio>_<cpu>mhz_<MAJOR>_<MINOR>.uf2
 ```
 
 - `BOARD` — `1` (M1) or `2` (M2)
@@ -102,7 +101,6 @@ murmc64_m<BOARD>_<video>_<audio>_<cpu>mhz_<MAJOR>_<MINOR>.<ext>
 - `audio` — `i2s` or `pwm`
 - `cpu` — CPU clock in MHz
 - `MAJOR_MINOR` — version with minor zero-padded (e.g., `1_04`)
-- `ext` — `uf2` (standard), `m1p2` (MOS2 board M1), `m2p2` (MOS2 board M2)
 
 ### CMake flags used per build
 
@@ -115,7 +113,6 @@ murmc64_m<BOARD>_<video>_<audio>_<cpu>mhz_<MAJOR>_<MINOR>.<ext>
 -DUSB_HID_ENABLED=1
 -DDEBUG_LOGS_ENABLED=OFF
 -DFIRMWARE_VERSION="v<MAJOR>.<MINOR>"
--DMOS2=<ON|OFF>
 ```
 
 4. **Creates a GitHub Release** tagged `vMAJOR.MINOR` with all firmware files attached
@@ -152,15 +149,15 @@ From your local machine with `gh` CLI authenticated:
 
 ```bash
 # 1. Generate a registration token for this repo
-TOKEN=$(GH_PAGER=cat gh api --method POST repos/rh1tech/murmc64/actions/runners/registration-token --jq .token)
+TOKEN=$(GH_PAGER=cat gh api --method POST repos/rh1tech/frank-c64/actions/runners/registration-token --jq .token)
 
 # 2. SSH into the server and run the add script
-ssh xtreme@rbx1.re-hash.org "~/add-runner.sh rh1tech/murmc64 $TOKEN"
+ssh xtreme@rbx1.re-hash.org "~/add-runner.sh rh1tech/frank-c64 $TOKEN"
 ```
 
 ### What `add-runner.sh` does
 
-1. Creates `~/runners/murmc64/` on the server
+1. Creates `~/runners/frank-c64/` on the server
 2. Copies runner binaries from an existing instance (avoids re-downloading)
 3. Registers with GitHub using name `rp2350-builder` and labels `self-hosted,linux,rp2350`
 4. Sets `PICO_SDK_PATH=/home/xtreme/pico-sdk` in the runner's `.env` file
@@ -180,19 +177,19 @@ ssh xtreme@rbx1.re-hash.org 'chmod +x setup-runner.sh && ./setup-runner.sh'
 ### Check runner status
 
 ```bash
-ssh xtreme@rbx1.re-hash.org 'sudo systemctl status actions.runner.rh1tech-murmc64.rp2350-builder.service'
+ssh xtreme@rbx1.re-hash.org 'sudo systemctl status actions.runner.rh1tech-frank-c64.rp2350-builder.service'
 ```
 
 ### View runner logs
 
 ```bash
-ssh xtreme@rbx1.re-hash.org 'journalctl -u actions.runner.rh1tech-murmc64.rp2350-builder.service -f'
+ssh xtreme@rbx1.re-hash.org 'journalctl -u actions.runner.rh1tech-frank-c64.rp2350-builder.service -f'
 ```
 
 ### Restart runner
 
 ```bash
-ssh xtreme@rbx1.re-hash.org 'cd ~/runners/murmc64 && sudo ./svc.sh stop && sudo ./svc.sh start'
+ssh xtreme@rbx1.re-hash.org 'cd ~/runners/frank-c64 && sudo ./svc.sh stop && sudo ./svc.sh start'
 ```
 
 ### List all runner services on the server
@@ -205,10 +202,10 @@ ssh xtreme@rbx1.re-hash.org 'systemctl list-units --type=service | grep actions.
 
 ```bash
 # Get a removal token
-TOKEN=$(GH_PAGER=cat gh api --method POST repos/rh1tech/murmc64/actions/runners/remove-token --jq .token)
+TOKEN=$(GH_PAGER=cat gh api --method POST repos/rh1tech/frank-c64/actions/runners/remove-token --jq .token)
 
 # Remove on server
-ssh xtreme@rbx1.re-hash.org "cd ~/runners/murmc64 && sudo ./svc.sh stop && sudo ./svc.sh uninstall && ./config.sh remove --token $TOKEN"
+ssh xtreme@rbx1.re-hash.org "cd ~/runners/frank-c64 && sudo ./svc.sh stop && sudo ./svc.sh uninstall && ./config.sh remove --token $TOKEN"
 ```
 
 ### Update Pico SDK
@@ -229,10 +226,10 @@ ssh xtreme@rbx1.re-hash.org 'cd ~/pico-sdk && git pull && git submodule update -
 
 ```bash
 # Check service status
-ssh xtreme@rbx1.re-hash.org 'cd ~/runners/murmc64 && sudo ./svc.sh status'
+ssh xtreme@rbx1.re-hash.org 'cd ~/runners/frank-c64 && sudo ./svc.sh status'
 
 # Restart
-ssh xtreme@rbx1.re-hash.org 'cd ~/runners/murmc64 && sudo ./svc.sh stop && sudo ./svc.sh start'
+ssh xtreme@rbx1.re-hash.org 'cd ~/runners/frank-c64 && sudo ./svc.sh stop && sudo ./svc.sh start'
 ```
 
 ### Build fails with "PICO_SDK_PATH not set"
@@ -240,14 +237,14 @@ ssh xtreme@rbx1.re-hash.org 'cd ~/runners/murmc64 && sudo ./svc.sh stop && sudo 
 The runner's `.env` file may be missing or incorrect:
 
 ```bash
-ssh xtreme@rbx1.re-hash.org 'cat ~/runners/murmc64/.env'
+ssh xtreme@rbx1.re-hash.org 'cat ~/runners/frank-c64/.env'
 # Should show: PICO_SDK_PATH=/home/xtreme/pico-sdk
 ```
 
 Fix:
 
 ```bash
-ssh xtreme@rbx1.re-hash.org 'echo "PICO_SDK_PATH=/home/xtreme/pico-sdk" > ~/runners/murmc64/.env'
+ssh xtreme@rbx1.re-hash.org 'echo "PICO_SDK_PATH=/home/xtreme/pico-sdk" > ~/runners/frank-c64/.env'
 ```
 
 ### Broken symlinks after runner auto-update
@@ -255,9 +252,9 @@ ssh xtreme@rbx1.re-hash.org 'echo "PICO_SDK_PATH=/home/xtreme/pico-sdk" > ~/runn
 The GitHub runner auto-updates itself. If `bin` or `externals` become broken symlinks:
 
 ```bash
-ssh xtreme@rbx1.re-hash.org 'cd ~/runners/murmc64 && ls -la bin externals'
+ssh xtreme@rbx1.re-hash.org 'cd ~/runners/frank-c64 && ls -la bin externals'
 # If broken, fix by pointing to latest versioned directory:
-ssh xtreme@rbx1.re-hash.org 'cd ~/runners/murmc64 && rm -f bin externals && ln -s bin.* bin && ln -s externals.* externals'
+ssh xtreme@rbx1.re-hash.org 'cd ~/runners/frank-c64 && rm -f bin externals && ln -s bin.* bin && ln -s externals.* externals'
 ```
 
 ### Version already exists on GitHub

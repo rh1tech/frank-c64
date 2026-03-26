@@ -1,5 +1,5 @@
 /*
- * startscreen.h - Welcome/start screen for MurmC64
+ * startscreen.h - Welcome/start screen for FRANK C64
  *
  * Displays system information on startup before emulation begins.
  *

@@ -1,4 +1,4 @@
-# MurmC64
+# FRANK C64
 
 Commodore 64 emulator for Raspberry Pi Pico 2 (RP2350) with HDMI/VGA output, SD card, and PS/2 keyboard.
 
@@ -24,7 +24,6 @@ Both boards provide all necessary peripherals out of the box—no additional wir
 - NES/SNES gamepad support (directly and via USB)
 - **I2S audio output** — High-quality SID emulation via external DAC
 - **PWM audio output** — SID emulation without external DAC (directly via GPIO)
-- [Murmulator OS 2](https://murmulator.ru) support (m1p2/m2p2 firmware format)
 - Multiple CPU speed options: 378, 428 (VGA only), 504 MHz
 
 ## Hardware Requirements
@@ -42,7 +41,7 @@ Both boards provide all necessary peripherals out of the box—no additional wir
 
 ### PSRAM Options
 
-MurmC64 requires 8MB PSRAM to run. You can obtain PSRAM-equipped hardware in several ways:
+FRANK C64 requires 8MB PSRAM to run. You can obtain PSRAM-equipped hardware in several ways:
 
 1. **Solder a PSRAM chip** on top of the Flash chip on a Pico 2 clone (SOP-8 flash chips are only available on clones, not the original Pico 2)
 2. **Build a [Nyx 2](https://rh1.tech/projects/nyx?area=nyx2)** — a DIY RP2350 board with integrated PSRAM
@@ -115,8 +114,8 @@ VGA uses the same base pins as HDMI. See Murmulator hardware documentation for r
 
 ```bash
 # Clone the repository with submodules
-git clone --recursive https://github.com/rh1tech/murmc64.git
-cd murmc64
+git clone --recursive https://github.com/rh1tech/frank-c64.git
+cd frank-c64
 
 # Or if already cloned, initialize submodules
 git submodule update --init --recursive
@@ -144,27 +143,26 @@ To build all firmware variants with version numbering and USB HID enabled:
 
 This creates versioned firmware archives in the `release/` directory:
 
-- `murmc64_m1_X_XX.zip` — All M1 board variants
-- `murmc64_m2_X_XX.zip` — All M2 board variants
+- `frank-c64_m1_X_XX.zip` — All M1 board variants
+- `frank-c64_m2_X_XX.zip` — All M2 board variants
 
 Each archive contains firmware for all combinations:
 - **Video**: VGA, HDMI
 - **Audio**: I2S, PWM
 - **CPU Speed**: 378, 428 (VGA only), 504 MHz
-- **Format**: UF2 (BOOTSEL) and MOS2 (Murmulator OS)
 
-Filename format: `murmc64_mX_video_audio_speedmhz_version.{uf2,m1p2,m2p2}`
+Filename format: `frank-c64_mX_video_audio_speedmhz_version.uf2`
 
-Example: `murmc64_m1_vga_pwm_378mhz_1_02.uf2`
+Example: `frank-c64_m1_vga_pwm_378mhz_1_02.uf2`
 
 ### Flashing
 
 ```bash
 # With device in BOOTSEL mode:
-picotool load build/murmc64.uf2
+picotool load build/frank-c64.uf2
 
 # Or with device running:
-picotool load -f build/murmc64.uf2
+picotool load -f build/frank-c64.uf2
 
 # Or use the flash script:
 ./flash.sh

@@ -1,5 +1,5 @@
 /*
- *  main_rp2350.c - Main entry point for MurmC64 (Frodo4 C64 Emulator) on RP2350
+ *  main_rp2350.c - Main entry point for FRANK C64 (Frodo4 C64 Emulator) on RP2350
  *
  *  This initializes all hardware and starts the emulator.
  *
@@ -221,7 +221,7 @@ static void __no_inline_not_in_flash_func(init_stdio)(void) {
     }
 
     printf("=====================================\n");
-    printf("  MurmC64 - C64 Emulator (Frodo4)\n");
+    printf("  FRANK C64 - C64 Emulator (Frodo4)\n");
     printf("  RP2350 Port\n");
     printf("=====================================\n");
     printf("Board variant: %s\n",
@@ -590,7 +590,7 @@ int main(void) {
     // Show start screen with system information
     {
         startscreen_info_t screen_info = {
-            .title = "MurmC64",
+            .title = "FRANK C64",
             .subtitle = "Commodore 64 Emulator",
             .version = FIRMWARE_VERSION,
 #ifdef BOARD_M1

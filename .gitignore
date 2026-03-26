@@ -4,9 +4,6 @@ build/
 # Release builds
 release/
 
-# External dependencies (now a submodule)
-# pico-extras/ is a git submodule, not ignored
-
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/

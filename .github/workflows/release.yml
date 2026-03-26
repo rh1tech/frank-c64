@@ -58,9 +58,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version_tag }}
-          name: "MurmC64 ${{ steps.version.outputs.version_dot }}"
+          name: "FRANK C64 ${{ steps.version.outputs.version_dot }}"
           body: |
-            ## MurmC64 ${{ steps.version.outputs.version_dot }}
+            ## FRANK C64 ${{ steps.version.outputs.version_dot }}
 
             Commodore 64 emulator for RP2350 (Frodo4-based)
 
@@ -69,26 +69,18 @@ jobs:
             **Standard UF2 (drag & drop to Pico 2):**
             | File | Board | Video | Audio | CPU |
             |------|-------|-------|-------|-----|
-            | `murmc64_m1_vga_*_378mhz_*.uf2` | M1 | VGA | I2S/PWM | 378 MHz |
-            | `murmc64_m1_vga_*_428mhz_*.uf2` | M1 | VGA | I2S/PWM | 428 MHz |
-            | `murmc64_m1_vga_*_504mhz_*.uf2` | M1 | VGA | I2S/PWM | 504 MHz |
-            | `murmc64_m1_hdmi_*_378mhz_*.uf2` | M1 | HDMI | I2S/PWM | 378 MHz |
-            | `murmc64_m1_hdmi_*_504mhz_*.uf2` | M1 | HDMI | I2S/PWM | 504 MHz |
-            | `murmc64_m2_*` | M2 | same matrix | | |
-
-            **Murmulator OS 2:**
-            | File | Board |
-            |------|-------|
-            | `murmc64_m1_*.m1p2` | M1 |
-            | `murmc64_m2_*.m2p2` | M2 |
+            | `frank-c64_m1_vga_*_378mhz_*.uf2` | M1 | VGA | I2S/PWM | 378 MHz |
+            | `frank-c64_m1_vga_*_428mhz_*.uf2` | M1 | VGA | I2S/PWM | 428 MHz |
+            | `frank-c64_m1_vga_*_504mhz_*.uf2` | M1 | VGA | I2S/PWM | 504 MHz |
+            | `frank-c64_m1_hdmi_*_378mhz_*.uf2` | M1 | HDMI | I2S/PWM | 378 MHz |
+            | `frank-c64_m1_hdmi_*_504mhz_*.uf2` | M1 | HDMI | I2S/PWM | 504 MHz |
+            | `frank-c64_m2_*` | M2 | same matrix | | |
 
             ### How to flash
             1. Hold BOOTSEL on your Pico 2 and plug in USB
             2. Drag the `.uf2` file matching your board/video/audio to the RPI-RP2 drive
           files: |
             release/*.uf2
-            release/*.m1p2
-            release/*.m2p2
           draft: false
           prerelease: false
           generate_release_notes: true

@@ -20,7 +20,7 @@
 set -e
 
 echo "========================================"
-echo " MurmC64 CI Runner Setup"
+echo " FRANK C64 CI Runner Setup"
 echo "========================================"
 
 # --- Step 1: Install build dependencies ---
@@ -78,7 +78,7 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo " You need a runner registration token from GitHub."
 echo ""
-echo " Go to: https://github.com/rh1tech/murmc64/settings/actions/runners/new"
+echo " Go to: https://github.com/rh1tech/frank-c64/settings/actions/runners/new"
 echo " Copy the token shown in the 'Configure' section."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -110,7 +110,7 @@ else
 
     # Configure runner
     ./config.sh \
-        --url https://github.com/rh1tech/murmc64 \
+        --url https://github.com/rh1tech/frank-c64 \
         --token "$RUNNER_TOKEN" \
         --name "rp2350-builder" \
         --labels "self-hosted,linux,rp2350" \
@@ -137,12 +137,12 @@ echo " Setup Complete!"
 echo "========================================"
 echo ""
 echo "Runner status: sudo ./svc.sh status"
-echo "Runner logs:   journalctl -u actions.runner.rh1tech-murmc64.rp2350-builder.service -f"
+echo "Runner logs:   journalctl -u actions.runner.rh1tech-frank-c64.rp2350-builder.service -f"
 echo ""
 echo "PICO_SDK_PATH=$PICO_SDK_PATH"
 echo ""
 echo "To test the build manually:"
-echo "  cd /tmp && git clone https://github.com/rh1tech/murmc64.git && cd murmc64"
+echo "  cd /tmp && git clone https://github.com/rh1tech/frank-c64.git && cd frank-c64"
 echo "  chmod +x release-ci.sh && ./release-ci.sh 1 00"
 echo ""
 echo "The runner will now pick up jobs from GitHub Actions automatically."

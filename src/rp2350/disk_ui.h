@@ -1,8 +1,8 @@
 /*
  * disk_ui.h
  *
- * Simple text-based disk selector UI for MurmC64
- * Adapted from murmc64/murmapple
+ * Simple text-based disk selector UI for FRANK C64
+ * Adapted from frank-c64/murmapple
  *
  * Copyright (c) 2024-2026 Mikhail Matveev <xtreme@rh1.tech>
  */

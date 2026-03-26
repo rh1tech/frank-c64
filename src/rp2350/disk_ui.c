@@ -1,8 +1,8 @@
 /*
  * disk_ui.c
  *
- * Disk selector UI for MurmC64
- * Adapted from murmc64/murmapple
+ * Disk selector UI for FRANK C64
+ * Adapted from frank-c64/murmapple
  * Features inverted title bar, compact 6x8 font, proper selection highlighting
  *
  * Copyright (c) 2024-2026 Mikhail Matveev <xtreme@rh1.tech>

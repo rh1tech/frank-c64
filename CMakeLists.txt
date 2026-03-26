@@ -14,8 +14,8 @@ endif()
 # ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 
-# Build name - will be modified based on MOS2 setting
-set(BUILD_NAME "murmc64")
+# Build name
+set(BUILD_NAME "frank-c64")
 
 # Firmware version string (set by release.sh or manually)
 set(FIRMWARE_VERSION "v1.05" CACHE STRING "Firmware version string")
@@ -31,9 +31,6 @@ set(VIDEO_TYPE "VGA" CACHE STRING "Video output: VGA or HDMI")
 
 # Audio output configuration (I2S or PWM)
 set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
-
-# MOS2 support (generate .m1p2 or .m2p2 for Murmulator OS instead of .uf2)
-option(MOS2 "MOS2 support" OFF)
 
 # CPU overclock configuration (252, 378, 428(VGA), 504 MHz)
 set(CPU_SPEED "378" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
@@ -133,7 +130,7 @@ option(UART_ENABLED "Enable USB HID Host for keyboard/gamepad" OFF)
 # Use Frodo Lite (line-based) instead of Frodo SC (cycle-accurate) for better performance
 option(FRODO_LITE "Use Frodo Lite (line-based emulation)" ON)
 
-message(STATUS "MurmC64 - Commodore 64 Emulator (Frodo4) for RP2040/RP2350")
+message(STATUS "FRANK C64 - Commodore 64 Emulator (Frodo4) for RP2040/RP2350")
 if (PSRAM_SPEED)
     message(STATUS "Board: ${BOARD_VARIANT}, CPU: ${CPU_SPEED} MHz, PSRAM: ${PSRAM_SPEED} MHz, Voltage: ${CPU_VOLTAGE}")
 else()
@@ -146,40 +143,11 @@ include(pico_sdk_import.cmake)
 set(OUTPUT_DIR "${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 
-# MOS2 support: modify build name for Murmulator OS format
-if (MOS2)
-    IF(BOARD_VARIANT STREQUAL "M2")
-        SET(BUILD_NAME "${BUILD_NAME}.m2p2")
-    ELSEIF(BOARD_VARIANT STREQUAL "PC")
-        SET(BUILD_NAME "${BUILD_NAME}.PCp2")
-# TODO: support later
-#    ELSEIF(PICO_DV)
-#        SET(BUILD_NAME "${BUILD_NAME}.DVp2")
-    ELSEIF(BOARD_VARIANT STREQUAL "Z0")
-        SET(BUILD_NAME "${BUILD_NAME}.z0p2")
-    ELSE()
-        SET(BUILD_NAME "${BUILD_NAME}.m1p2")
-    ENDIF()
-    message(STATUS "Building for Murmulator OS: ${BUILD_NAME}")
-endif ()
-
-
-# Import pico-extras for audio_i2s library
-set(PICO_EXTRAS_PATH ${CMAKE_CURRENT_LIST_DIR}/pico-extras CACHE PATH "Path to pico-extras")
-if(EXISTS ${PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
-    include(${PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
-endif()
-
 project(${BUILD_NAME} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 
 pico_sdk_init()
-
-# Initialize pico-extras if available
-if(COMMAND pico_extras_init)
-    pico_extras_init()
-endif()
 
 # Copy driver subdirectories from murmapple structure
 add_subdirectory(drivers/ps2kbd)
@@ -275,13 +243,6 @@ if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
     target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
     pico_set_boot_stage2(${BUILD_NAME} slower_boot2)
-    unset(MOS2)
-else()
-    # MOS2 support: use custom linker script only for Murmulator OS builds
-    # Non-MOS2 builds use the default Pico SDK linker script
-    if(MOS2)
-        pico_set_linker_script(${BUILD_NAME} "${CMAKE_SOURCE_DIR}/memmap.mos2.ld")
-    endif()
 endif()
 
 # Frodo Lite (line-based) vs Frodo SC (cycle-accurate) emulation
@@ -404,12 +365,3 @@ endif()
 pico_add_extra_outputs(${BUILD_NAME})
 
 target_link_options(${BUILD_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)
-
-# MOS2 support:
-if (MOS2)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E rename
-        "${OUTPUT_DIR}/${BUILD_NAME}.uf2"
-        "${OUTPUT_DIR}/${BUILD_NAME}"
-    )
-endif ()

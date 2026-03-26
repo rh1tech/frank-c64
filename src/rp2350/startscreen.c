@@ -1,5 +1,5 @@
 /*
- * startscreen.c - Demoscene-style welcome screen for MurmC64
+ * startscreen.c - Demoscene-style welcome screen for FRANK C64
  *
  * Copyright (c) 2024-2026 Mikhail Matveev <xtreme@rh1.tech>
  *
@@ -453,9 +453,9 @@ int startscreen_show(startscreen_info_t *info) {
     text_y += LINE_HEIGHT + 10;
 
     // Credits
-    draw_centered_shadow(text_y, "By Mikhail Matveev", COLOR_TEXT_CYAN);
+    draw_centered_shadow(text_y, "Port by Mikhail Matveev", COLOR_TEXT_CYAN);
     text_y += LINE_HEIGHT;
-    draw_centered_shadow(text_y, "rh1.tech", COLOR_TEXT_CYAN);
+    draw_centered_shadow(text_y, "github.com/rh1tech/frank-c64", COLOR_TEXT_CYAN);
 
     // Starting message at bottom
     text_y = box_y + box_h - 16;
