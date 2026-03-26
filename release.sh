@@ -4,9 +4,9 @@
 # release.sh - Build release variants of FRANK C64
 #
 # Build matrix:
-#   - Board variants: M1, M2
+#   - Board variants: M1, M2, PC (Olimex PICO-PC), Z0 (Waveshare RP2350-PiZero)
 #   - Video types: VGA, HDMI
-#   - Audio types: I2S, PWM
+#   - Audio types: I2S, PWM (PC supports PWM only)
 #   - CPU speeds: 378, 428, 504 MHz (428 only for VGA)
 #
 # Output: UF2 files for direct flashing via BOOTSEL mode
@@ -15,8 +15,8 @@
 # PS/2 keyboard and NES gamepad are also supported simultaneously.
 # USB Serial debug output is DISABLED in release builds.
 #
-# Output format: frank-c64_mX_VIDEO_AUDIO_CPUmhz_A_BB.uf2
-#   X     = Board variant (1 or 2)
+# Output format: frank-c64_BOARD_VIDEO_AUDIO_CPUmhz_A_BB.uf2
+#   BOARD = m1, m2, pc, or z0
 #   VIDEO = vga or hdmi
 #   AUDIO = i2s or pwm
 #   CPU   = CPU speed in MHz
@@ -121,15 +121,21 @@ RELEASE_DIR="$SCRIPT_DIR/release"
 mkdir -p "$RELEASE_DIR"
 
 # Build matrix configuration
-BOARD_VARIANTS=(M1 M2)
+BOARD_VARIANTS=(M1 M2 PC Z0)
 VIDEO_TYPES=(VGA HDMI)
 AUDIO_TYPES=(I2S PWM)
 CPU_SPEEDS=(378 428 504)
 
-# Calculate total builds (428 MHz only valid for VGA)
-# VGA: 2 boards × 2 audio × 3 speeds = 12
-# HDMI: 2 boards × 2 audio × 2 speeds = 8
-TOTAL_BUILDS=20
+# Board slug (for output filename) and cmake prefix (for finding built UF2)
+declare -A BOARD_SLUG=( [M1]=m1 [M2]=m2 [PC]=pc [Z0]=z0 )
+declare -A BOARD_CMAKE_PREFIX=( [M1]=m1p2 [M2]=m2p2 [PC]=PCp2 [Z0]=z0p2 )
+# PC (Olimex PICO-PC) only supports PWM audio (no I2S pins)
+declare -A BOARD_PWM_ONLY=( [M1]=0 [M2]=0 [PC]=1 [Z0]=0 )
+
+# Calculate total builds (428 MHz only valid for VGA, PC has PWM only)
+# M1/M2/Z0: VGA(3 speeds × 2 audio) + HDMI(2 speeds × 2 audio) = 10 each = 30
+# PC:       VGA(3 speeds × 1 audio) + HDMI(2 speeds × 1 audio) = 5
+TOTAL_BUILDS=35
 
 BUILD_COUNT=0
 FAILED_BUILDS=0
@@ -148,22 +154,20 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                     continue
                 fi
 
+                # Skip I2S for boards that only support PWM
+                if [[ "$AUDIO" == "I2S" && "${BOARD_PWM_ONLY[$BOARD]}" == "1" ]]; then
+                    continue
+                fi
+
                 BUILD_COUNT=$((BUILD_COUNT + 1))
 
-                # Board variant number for filename
-                if [[ "$BOARD" == "M1" ]]; then
-                    BOARD_NUM=1
-                    BOARD_PREFIX="m1p2"
-                else
-                    BOARD_NUM=2
-                    BOARD_PREFIX="m2p2"
-                fi
+                BOARD_PREFIX="${BOARD_CMAKE_PREFIX[$BOARD]}"
 
                 # Lowercase video/audio for filename
                 VIDEO_LC=$(echo "$VIDEO" | tr '[:upper:]' '[:lower:]')
                 AUDIO_LC=$(echo "$AUDIO" | tr '[:upper:]' '[:lower:]')
 
-                OUTPUT_NAME="frank-c64_m${BOARD_NUM}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
+                OUTPUT_NAME="frank-c64_${BOARD_SLUG[$BOARD]}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
 
                 echo ""
                 echo -e "${CYAN}[$BUILD_COUNT/$TOTAL_BUILDS] Building: $OUTPUT_NAME${NC}"
@@ -228,27 +232,18 @@ echo -e "${CYAN}=== Creating platform archives ===${NC}"
 
 cd "$RELEASE_DIR"
 
-# M1 archive
-M1_ZIP="frank-c64_m1_${VERSION}.zip"
-rm -f "$M1_ZIP"
-M1_FILES=$(ls frank-c64_m1_*_${VERSION}.* 2>/dev/null)
-if [[ -n "$M1_FILES" ]]; then
-    zip -q "$M1_ZIP" $M1_FILES
-    M1_COUNT=$(echo "$M1_FILES" | wc -w | tr -d ' ')
-    echo -e "  ${GREEN}✓${NC} $M1_ZIP ($M1_COUNT files)"
-    rm -f $M1_FILES
-fi
-
-# M2 archive
-M2_ZIP="frank-c64_m2_${VERSION}.zip"
-rm -f "$M2_ZIP"
-M2_FILES=$(ls frank-c64_m2_*_${VERSION}.* 2>/dev/null)
-if [[ -n "$M2_FILES" ]]; then
-    zip -q "$M2_ZIP" $M2_FILES
-    M2_COUNT=$(echo "$M2_FILES" | wc -w | tr -d ' ')
-    echo -e "  ${GREEN}✓${NC} $M2_ZIP ($M2_COUNT files)"
-    rm -f $M2_FILES
-fi
+for BOARD in M1 M2 PC Z0; do
+    SLUG="${BOARD_SLUG[$BOARD]}"
+    ZIP_NAME="frank-c64_${SLUG}_${VERSION}.zip"
+    rm -f "$ZIP_NAME"
+    FILES=$(ls frank-c64_${SLUG}_*_${VERSION}.* 2>/dev/null)
+    if [[ -n "$FILES" ]]; then
+        zip -q "$ZIP_NAME" $FILES
+        FILE_COUNT=$(echo "$FILES" | wc -w | tr -d ' ')
+        echo -e "  ${GREEN}✓${NC} $ZIP_NAME ($FILE_COUNT files)"
+        rm -f $FILES
+    fi
+done
 
 cd "$SCRIPT_DIR"
 
@@ -256,8 +251,8 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "Release archives in: ${CYAN}$RELEASE_DIR/${NC}"
 echo ""
-ls -la "$RELEASE_DIR"/frank-c64_m?_${VERSION}.zip 2>/dev/null | awk '{print "  " $NF " (" $5 " bytes)"}'
+ls -la "$RELEASE_DIR"/frank-c64_*_${VERSION}.zip 2>/dev/null | awk '{print "  " $NF " (" $5 " bytes)"}'
 echo ""
 echo -e "Version: ${CYAN}${VERSION_DOT}${NC}"
 echo ""
-echo "Build matrix: 2 boards × 2 video × 2 audio × 3 speeds (428 MHz VGA only)"
+echo "Build matrix: 4 boards (M1, M2, PC, Z0) × 2 video × 2 audio × 3 speeds (428 VGA only, PC PWM only)"

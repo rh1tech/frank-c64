@@ -66,15 +66,15 @@ jobs:
 
             ### Firmware files
 
-            **Standard UF2 (drag & drop to Pico 2):**
-            | File | Board | Video | Audio | CPU |
-            |------|-------|-------|-------|-----|
-            | `frank-c64_m1_vga_*_378mhz_*.uf2` | M1 | VGA | I2S/PWM | 378 MHz |
-            | `frank-c64_m1_vga_*_428mhz_*.uf2` | M1 | VGA | I2S/PWM | 428 MHz |
-            | `frank-c64_m1_vga_*_504mhz_*.uf2` | M1 | VGA | I2S/PWM | 504 MHz |
-            | `frank-c64_m1_hdmi_*_378mhz_*.uf2` | M1 | HDMI | I2S/PWM | 378 MHz |
-            | `frank-c64_m1_hdmi_*_504mhz_*.uf2` | M1 | HDMI | I2S/PWM | 504 MHz |
-            | `frank-c64_m2_*` | M2 | same matrix | | |
+            **Supported boards:**
+            - **M1** — Murmulator M1 (I2S + PWM audio)
+            - **M2** — Murmulator M2 (I2S + PWM audio)
+            - **PC** — Olimex PICO-PC (PWM audio only)
+            - **Z0** — Waveshare RP2350-PiZero (I2S + PWM audio)
+
+            **Build matrix per board:** VGA/HDMI × Audio × CPU speed (378/428/504 MHz, 428 VGA only)
+
+            35 firmware variants total.
 
             ### How to flash
             1. Hold BOOTSEL on your Pico 2 and plug in USB
