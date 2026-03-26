@@ -111,7 +111,7 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                 BUILD_LOG="$SCRIPT_DIR/build_${OUTPUT_NAME}.log"
 
                 if ! cmake .. \
-                    -DPICO_PLATFORM=rp2350 \
+                    -DPICO_BOARD=pico2 \
                     -DBOARD_VARIANT="$BOARD" \
                     -DVIDEO_TYPE="$VIDEO" \
                     -DAUDIO_TYPE="$AUDIO" \

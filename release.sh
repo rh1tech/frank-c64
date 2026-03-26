@@ -175,7 +175,7 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                 cd build
 
                 cmake .. \
-                    -DPICO_PLATFORM=rp2350 \
+                    -DPICO_BOARD=pico2 \
                     -DBOARD_VARIANT="$BOARD" \
                     -DVIDEO_TYPE="$VIDEO" \
                     -DAUDIO_TYPE="$AUDIO" \
