@@ -720,7 +720,11 @@ void input_rp2350_poll_no_c64_acts()
 
 // Ctrl+Alt+Delete triggers C64 reset
     static bool reset_combo_was_active = false;
-    if (ps2kbd_is_reset_combo() || usbhid_wrapper_is_reset_combo()) {
+    bool reset_combo = ps2kbd_is_reset_combo();
+#ifdef USB_HID_ENABLED
+    reset_combo = reset_combo || usbhid_wrapper_is_reset_combo();
+#endif
+    if (reset_combo) {
         if (!reset_combo_was_active) {
             MII_DEBUG_PRINTF("Ctrl+Alt+Del: C64 Reset\n");
             c64_unmount_disk();
@@ -848,7 +852,10 @@ void input_rp2350_poll_no_c64_acts()
     }
 
     // Handle shift key from USB modifiers and shift lock
-    uint8_t usb_mods = mods | usbhid_wrapper_get_modifiers();
+    uint8_t usb_mods = mods;
+#ifdef USB_HID_ENABLED
+    usb_mods |= usbhid_wrapper_get_modifiers();
+#endif
     {
         bool lshift = (usb_mods & MOD_LSHIFT) || input_state.shift_lock;
         bool rshift = (usb_mods & MOD_RSHIFT);

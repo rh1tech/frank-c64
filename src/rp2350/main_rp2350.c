@@ -233,7 +233,11 @@ static void __no_inline_not_in_flash_func(init_stdio)(void) {
            "M2"
 #endif
     );
+#ifdef PSRAM_MAX_FREQ_MHZ
     printf("CPU: %d MHz, PSRAM: %d MHz\n", CPU_CLOCK_MHZ, PSRAM_MAX_FREQ_MHZ);
+#else
+    printf("CPU: %d MHz\n", CPU_CLOCK_MHZ);
+#endif
     printf("\n");
 #endif
 }

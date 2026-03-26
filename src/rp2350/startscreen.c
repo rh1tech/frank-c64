@@ -453,7 +453,7 @@ int startscreen_show(startscreen_info_t *info) {
     text_y += LINE_HEIGHT + 10;
 
     // Credits
-    draw_centered_shadow(text_y, "Port by Mikhail Matveev", COLOR_TEXT_CYAN);
+    draw_centered_shadow(text_y, "Port by Mikhail Matveev & DnCraptor", COLOR_TEXT_CYAN);
     text_y += LINE_HEIGHT;
     draw_centered_shadow(text_y, "github.com/rh1tech/frank-c64", COLOR_TEXT_CYAN);
 
