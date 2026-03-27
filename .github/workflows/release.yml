@@ -66,15 +66,17 @@ jobs:
 
             ### Firmware files
 
+            **Supported chips:** RP2040, RP2350
+
             **Supported boards:**
             - **M1** — Murmulator M1 (I2S + PWM audio)
             - **M2** — Murmulator M2 (I2S + PWM audio)
             - **PC** — Olimex PICO-PC (PWM audio only)
             - **Z0** — Waveshare RP2350-PiZero (I2S + PWM audio)
 
-            **Build matrix per board:** VGA/HDMI × Audio × CPU speed (378/428/504 MHz, 428 VGA only)
+            **Build matrix per board:** Chip × VGA/HDMI × Audio × CPU speed (378/428/504 MHz, 428 VGA only)
 
-            35 firmware variants total.
+            70 firmware variants total.
 
             ### How to flash
             1. Hold BOOTSEL on your Pico 2 and plug in USB

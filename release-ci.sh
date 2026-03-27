@@ -8,12 +8,13 @@
 # Same as release.sh but takes version as arguments instead of interactive input.
 #
 # Build matrix:
+#   - Chips: RP2040 (pico), RP2350 (pico2)
 #   - Board variants: M1, M2, PC (Olimex PICO-PC), Z0 (Waveshare RP2350-PiZero)
 #   - Video types: VGA, HDMI
 #   - Audio types: I2S, PWM (PC supports PWM only)
 #   - CPU speeds: 378, 428, 504 MHz (428 only for VGA)
 #
-# Total: 35 firmware variants
+# Total: 70 firmware variants
 #
 
 set -e
@@ -54,21 +55,28 @@ RELEASE_DIR="$SCRIPT_DIR/release"
 mkdir -p "$RELEASE_DIR"
 
 # Build matrix configuration
+PICO_BOARDS=(pico pico2)
 BOARD_VARIANTS=(M1 M2 PC Z0)
 VIDEO_TYPES=(VGA HDMI)
 AUDIO_TYPES=(I2S PWM)
 CPU_SPEEDS=(378 428 504)
 
-# Board slug (for output filename) and cmake prefix (for finding built UF2)
+# Board slug (for output filename)
 declare -A BOARD_SLUG=( [M1]=m1 [M2]=m2 [PC]=pc [Z0]=z0 )
-declare -A BOARD_CMAKE_PREFIX=( [M1]=m1p2 [M2]=m2p2 [PC]=PCp2 [Z0]=z0p2 )
+# CMake build name prefix per board+chip
+declare -A BOARD_CMAKE_PREFIX=(
+    [M1_pico]=m1p1 [M2_pico]=m2p1 [PC_pico]=PCp1 [Z0_pico]=z0p1
+    [M1_pico2]=m1p2 [M2_pico2]=m2p2 [PC_pico2]=PCp2 [Z0_pico2]=z0p2
+)
+# Chip slug for output filename
+declare -A CHIP_SLUG=( [pico]=rp2040 [pico2]=rp2350 )
 # PC (Olimex PICO-PC) only supports PWM audio (no I2S pins)
 declare -A BOARD_PWM_ONLY=( [M1]=0 [M2]=0 [PC]=1 [Z0]=0 )
 
 # Calculate total builds (428 MHz only valid for VGA, PC has PWM only)
-# M1/M2/Z0: VGA(3 speeds × 2 audio) + HDMI(2 speeds × 2 audio) = 10 each = 30
-# PC:       VGA(3 speeds × 1 audio) + HDMI(2 speeds × 1 audio) = 5
-TOTAL_BUILDS=35
+# Per chip: M1/M2/Z0 = 10 each, PC = 5 → 35 per chip
+# 2 chips × 35 = 70
+TOTAL_BUILDS=70
 
 BUILD_COUNT=0
 FAILED=0
@@ -76,6 +84,7 @@ FAILED=0
 echo "Building $TOTAL_BUILDS firmware variants..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+for PICO_BOARD in "${PICO_BOARDS[@]}"; do
 for BOARD in "${BOARD_VARIANTS[@]}"; do
     for VIDEO in "${VIDEO_TYPES[@]}"; do
         for AUDIO in "${AUDIO_TYPES[@]}"; do
@@ -93,19 +102,26 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
 
                 BUILD_COUNT=$((BUILD_COUNT + 1))
 
-                BOARD_PREFIX="${BOARD_CMAKE_PREFIX[$BOARD]}"
+                BOARD_PREFIX="${BOARD_CMAKE_PREFIX[${BOARD}_${PICO_BOARD}]}"
 
                 # Lowercase video/audio for filename
                 VIDEO_LC=$(echo "$VIDEO" | tr '[:upper:]' '[:lower:]')
                 AUDIO_LC=$(echo "$AUDIO" | tr '[:upper:]' '[:lower:]')
 
-                OUTPUT_NAME="frank-c64_${BOARD_SLUG[$BOARD]}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
-                # CMake output: {board_prefix}-frank-c64-{VIDEO}-{CPU}MHz-F66-{AUDIO}-v{VERSION}.uf2
-                BUILD_FILE="${BOARD_PREFIX}-frank-c64-${VIDEO}-${CPU}MHz-F66-${AUDIO}-v${VERSION_DOT}.uf2"
+                OUTPUT_NAME="frank-c64_${BOARD_SLUG[$BOARD]}_${CHIP_SLUG[$PICO_BOARD]}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
+
+                # CMake output differs by chip:
+                #   pico:  {prefix}-frank-c64-{VIDEO}-{CPU}MHz-{AUDIO}-v{VERSION}.uf2
+                #   pico2: {prefix}-frank-c64-{VIDEO}-{CPU}MHz-F66-{AUDIO}-v{VERSION}.uf2
+                if [[ "$PICO_BOARD" == "pico" ]]; then
+                    BUILD_FILE="${BOARD_PREFIX}-frank-c64-${VIDEO}-${CPU}MHz-${AUDIO}-v${VERSION_DOT}.uf2"
+                else
+                    BUILD_FILE="${BOARD_PREFIX}-frank-c64-${VIDEO}-${CPU}MHz-F66-${AUDIO}-v${VERSION_DOT}.uf2"
+                fi
 
                 echo ""
                 echo "[$BUILD_COUNT/$TOTAL_BUILDS] Building: $OUTPUT_NAME"
-                echo "  Board: $BOARD | Video: $VIDEO | Audio: $AUDIO | CPU: ${CPU} MHz"
+                echo "  Chip: ${CHIP_SLUG[$PICO_BOARD]} | Board: $BOARD | Video: $VIDEO | Audio: $AUDIO | CPU: ${CPU} MHz"
 
                 # Clean and create build directory
                 rm -rf build
@@ -115,7 +131,7 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                 BUILD_LOG="$SCRIPT_DIR/build_${OUTPUT_NAME}.log"
 
                 if ! cmake .. \
-                    -DPICO_BOARD=pico2 \
+                    -DPICO_BOARD="$PICO_BOARD" \
                     -DBOARD_VARIANT="$BOARD" \
                     -DVIDEO_TYPE="$VIDEO" \
                     -DAUDIO_TYPE="$AUDIO" \
@@ -160,6 +176,7 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
         done
     done
 done
+done
 
 # Clean up build directory
 rm -rf build
@@ -179,4 +196,4 @@ echo "Release files in: $RELEASE_DIR/"
 ls -la "$RELEASE_DIR"/frank-c64_*_${VERSION}.* 2>/dev/null | awk '{print "  " $9 " (" $5 " bytes)"}'
 echo ""
 echo "Version: ${VERSION_DOT}"
-echo "Build matrix: 4 boards (M1, M2, PC, Z0) × 2 video × 2 audio × 3 speeds (428 VGA only, PC PWM only)"
+echo "Build matrix: 2 chips (RP2040, RP2350) × 4 boards (M1, M2, PC, Z0) × 2 video × 2 audio × 3 speeds (428 VGA only, PC PWM only)"
