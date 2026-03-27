@@ -61,17 +61,26 @@ VIDEO_TYPES=(VGA HDMI)
 AUDIO_TYPES=(I2S PWM)
 CPU_SPEEDS=(378 428 504)
 
-# Board slug (for output filename)
-declare -A BOARD_SLUG=( [M1]=m1 [M2]=m2 [PC]=pc [Z0]=z0 )
-# CMake build name prefix per board+chip
-declare -A BOARD_CMAKE_PREFIX=(
-    [M1_pico]=m1p1 [M2_pico]=m2p1 [PC_pico]=PCp1 [Z0_pico]=z0p1
-    [M1_pico2]=m1p2 [M2_pico2]=m2p2 [PC_pico2]=PCp2 [Z0_pico2]=z0p2
-)
-# Chip slug for output filename
-declare -A CHIP_SLUG=( [pico]=rp2040 [pico2]=rp2350 )
-# PC (Olimex PICO-PC) only supports PWM audio (no I2S pins)
-declare -A BOARD_PWM_ONLY=( [M1]=0 [M2]=0 [PC]=1 [Z0]=0 )
+# Helper functions for board/chip mappings (bash 3.2 compatible)
+get_board_slug() {
+    case "$1" in
+        M1) echo "m1" ;; M2) echo "m2" ;; PC) echo "pc" ;; Z0) echo "z0" ;;
+    esac
+}
+get_cmake_prefix() {
+    case "${1}_${2}" in
+        M1_pico) echo "m1p1" ;; M2_pico) echo "m2p1" ;; PC_pico) echo "PCp1" ;; Z0_pico) echo "z0p1" ;;
+        M1_pico2) echo "m1p2" ;; M2_pico2) echo "m2p2" ;; PC_pico2) echo "PCp2" ;; Z0_pico2) echo "z0p2" ;;
+    esac
+}
+get_chip_slug() {
+    case "$1" in
+        pico) echo "rp2040" ;; pico2) echo "rp2350" ;;
+    esac
+}
+is_pwm_only() {
+    [[ "$1" == "PC" ]]
+}
 
 # Calculate total builds (428 MHz only valid for VGA, PC has PWM only)
 # Per chip: M1/M2/Z0 = 10 each, PC = 5 → 35 per chip
@@ -96,19 +105,21 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
                 fi
 
                 # Skip I2S for boards that only support PWM
-                if [[ "$AUDIO" == "I2S" && "${BOARD_PWM_ONLY[$BOARD]}" == "1" ]]; then
+                if [[ "$AUDIO" == "I2S" ]] && is_pwm_only "$BOARD"; then
                     continue
                 fi
 
                 BUILD_COUNT=$((BUILD_COUNT + 1))
 
-                BOARD_PREFIX="${BOARD_CMAKE_PREFIX[${BOARD}_${PICO_BOARD}]}"
+                BOARD_PREFIX=$(get_cmake_prefix "$BOARD" "$PICO_BOARD")
+                SLUG=$(get_board_slug "$BOARD")
+                CHIP=$(get_chip_slug "$PICO_BOARD")
 
                 # Lowercase video/audio for filename
                 VIDEO_LC=$(echo "$VIDEO" | tr '[:upper:]' '[:lower:]')
                 AUDIO_LC=$(echo "$AUDIO" | tr '[:upper:]' '[:lower:]')
 
-                OUTPUT_NAME="frank-c64_${BOARD_SLUG[$BOARD]}_${CHIP_SLUG[$PICO_BOARD]}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
+                OUTPUT_NAME="frank-c64_${SLUG}_${CHIP}_${VIDEO_LC}_${AUDIO_LC}_${CPU}mhz_${VERSION}.uf2"
 
                 # CMake output differs by chip:
                 #   pico:  {prefix}-frank-c64-{VIDEO}-{CPU}MHz-{AUDIO}-v{VERSION}.uf2
@@ -121,7 +132,7 @@ for BOARD in "${BOARD_VARIANTS[@]}"; do
 
                 echo ""
                 echo "[$BUILD_COUNT/$TOTAL_BUILDS] Building: $OUTPUT_NAME"
-                echo "  Chip: ${CHIP_SLUG[$PICO_BOARD]} | Board: $BOARD | Video: $VIDEO | Audio: $AUDIO | CPU: ${CPU} MHz"
+                echo "  Chip: ${CHIP} | Board: $BOARD | Video: $VIDEO | Audio: $AUDIO | CPU: ${CPU} MHz"
 
                 # Clean and create build directory
                 rm -rf build
