@@ -24,13 +24,13 @@ set(FIRMWARE_VERSION "v1.08" CACHE STRING "Firmware version string")
 set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 # Board configuration variant (M1, M2, PC or Z0)
-set(BOARD_VARIANT "M2" CACHE STRING "Board variant: M1, M2 or PC")
+set(BOARD_VARIANT "PC" CACHE STRING "Board variant: M1, M2 or PC")
 
 # Video output type (VGA or HDMI)
 set(VIDEO_TYPE "HDMI" CACHE STRING "Video output: VGA or HDMI")
 
 # Audio output configuration (I2S or PWM)
-set(AUDIO_TYPE "I2S" CACHE STRING "Audio output: I2S or PWM")
+set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
 
 # CPU overclock configuration (252, 378, 428(VGA), 504 MHz)
 set(CPU_SPEED "378" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
@@ -101,6 +101,11 @@ if(BOARD_VARIANT STREQUAL "M1")
     set(PWM_RIGHT_PIN "26")
     set(PWM_LEFT_PIN "27")
 elseif(BOARD_VARIANT STREQUAL "PC")
+    # Olimex RP2040-PICO-PC: analog stereo jack only (no I2S DAC);
+    # right GPIO27 and left GPIO28 are on different PWM slices (drivers/audio.c)
+    if(NOT AUDIO_TYPE STREQUAL "PWM")
+        message(FATAL_ERROR "BOARD_VARIANT=PC supports AUDIO_TYPE=PWM only")
+    endif()
     set(PWM_RIGHT_PIN "27")
     set(PWM_LEFT_PIN "28")
 elseif(BOARD_VARIANT STREQUAL "Z0")

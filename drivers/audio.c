@@ -106,6 +106,13 @@ static uint g_pwm_slice = 0;
 static uint32_t *g_pwm_dma_buf = NULL;
 static uint32_t g_pwm_dma_count = 0;
 static bool g_pwm_dma_active = false;
+#ifdef BOARD_PC
+// PCp2: right GPIO27 = slice 5 B, left GPIO28 = slice 6 A. The two pins are on
+// different slices, so a second DMA channel feeds the left slice from the same
+// buffer (its CC low half = channel A = left, same packing as on M1/M2).
+static int g_pwm_dma_chan2 = -1;
+static uint g_pwm_slice2 = 0;
+#endif
 #endif
 
 void i2s_init(i2s_config_t *config) {
@@ -134,6 +141,18 @@ void i2s_init(i2s_config_t *config) {
     pwm_set_chan_level(g_pwm_slice, PWM_CHAN_B, PWM_WRAP >> 1);
     pwm_set_enabled(g_pwm_slice, true);
 
+#ifdef BOARD_PC
+    g_pwm_slice2 = pwm_gpio_to_slice_num(PWM_LEFT_PIN);
+    pwm_init(g_pwm_slice2, &pcfg, false);
+    pwm_set_chan_level(g_pwm_slice2, PWM_CHAN_A, PWM_WRAP >> 1);
+    pwm_set_chan_level(g_pwm_slice2, PWM_CHAN_B, PWM_WRAP >> 1);
+    // restart both slices in phase so their DREQs pace the DMAs together
+    pwm_set_enabled(g_pwm_slice, false);
+    pwm_set_counter(g_pwm_slice, 0);
+    pwm_set_counter(g_pwm_slice2, 0);
+    pwm_set_mask_enabled((1u << g_pwm_slice) | (1u << g_pwm_slice2));
+#endif
+
     // init duty to mid
     pwm_set_gpio_level(PWM_RIGHT_PIN, PWM_WRAP >> 1);
     pwm_set_gpio_level(PWM_LEFT_PIN,  PWM_WRAP >> 1);
@@ -160,6 +179,22 @@ void i2s_init(i2s_config_t *config) {
         g_pwm_dma_count,
         false
     );
+#ifdef BOARD_PC
+    g_pwm_dma_chan2 = dma_claim_unused_channel(true);
+    dma_channel_config dcfg2 = dma_channel_get_default_config(g_pwm_dma_chan2);
+    channel_config_set_transfer_data_size(&dcfg2, DMA_SIZE_32);
+    channel_config_set_read_increment(&dcfg2, true);
+    channel_config_set_write_increment(&dcfg2, false);
+    channel_config_set_dreq(&dcfg2, pwm_get_dreq(g_pwm_slice2));
+    dma_channel_configure(
+        g_pwm_dma_chan2,
+        &dcfg2,
+        &pwm_hw->slice[g_pwm_slice2].cc,
+        g_pwm_dma_buf,
+        g_pwm_dma_count,
+        false
+    );
+#endif
 #endif
 #if defined(FEATURE_AUDIO_I2S)
     audio_pio = config->pio;
@@ -314,6 +349,9 @@ void pwm_dma_write_count(const int16_t *samples,
     // Дождаться завершения предыдущего DMA
     if (g_pwm_dma_active) {
         dma_channel_wait_for_finish_blocking(g_pwm_dma_chan);
+#ifdef BOARD_PC
+        dma_channel_wait_for_finish_blocking(g_pwm_dma_chan2);
+#endif
         g_pwm_dma_active = false;
     }
 
@@ -336,7 +374,13 @@ void pwm_dma_write_count(const int16_t *samples,
 
     dma_channel_set_read_addr(g_pwm_dma_chan, g_pwm_dma_buf, false);
     dma_channel_set_trans_count(g_pwm_dma_chan, g_pwm_dma_count, false);
+#ifdef BOARD_PC
+    dma_channel_set_read_addr(g_pwm_dma_chan2, g_pwm_dma_buf, false);
+    dma_channel_set_trans_count(g_pwm_dma_chan2, g_pwm_dma_count, false);
+    dma_start_channel_mask((1u << g_pwm_dma_chan) | (1u << g_pwm_dma_chan2));
+#else
     dma_channel_start(g_pwm_dma_chan);
+#endif
 
     g_pwm_dma_active = true;
 }
@@ -494,6 +538,11 @@ void audio_shutdown(void) {
         dma_channel_abort(g_pwm_dma_chan);
         dma_channel_unclaim(g_pwm_dma_chan);
         g_pwm_dma_chan = -1;
+#ifdef BOARD_PC
+        dma_channel_abort(g_pwm_dma_chan2);
+        dma_channel_unclaim(g_pwm_dma_chan2);
+        g_pwm_dma_chan2 = -1;
+#endif
         g_pwm_dma_active = false;
     }
 #endif
