@@ -229,6 +229,8 @@ static void __no_inline_not_in_flash_func(init_stdio)(void) {
            "M1"
 #elif BOARD_PC
            "PC"
+#elif defined(BOARD_Z0)
+           "Z0"
 #else
            "M2"
 #endif

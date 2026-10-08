@@ -31,7 +31,16 @@ static inline pio_sm_config nespad_program_get_default_config(uint offset) {
     return c;
 }
 
-static PIO pio = pio1;
+#ifndef NESPAD_PIO
+#if defined(BOARD_Z0) && PICO_RP2350
+// z0p2: HDMI takes PIO1 with GPIO base 16 (GPIO32..39); GP4..GP7 are out of
+// its reach, and PIO0 has PS/2 and I2S
+#define NESPAD_PIO pio2
+#else
+#define NESPAD_PIO pio1
+#endif
+#endif
+static PIO pio = NESPAD_PIO;
 static uint8_t sm = -1;
 uint32_t nespad_state = 0;  // Joystick 1
 uint32_t nespad_state2 = 0; // Joystick 2

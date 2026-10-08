@@ -24,20 +24,29 @@ set(FIRMWARE_VERSION "v1.08" CACHE STRING "Firmware version string")
 set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 # Board configuration variant (M1, M2, PC or Z0)
-set(BOARD_VARIANT "PC" CACHE STRING "Board variant: M1, M2 or PC")
+set(BOARD_VARIANT "Z0" CACHE STRING "Board variant: M1, M2, Z0 or PC")
 
 # Video output type (VGA or HDMI)
 set(VIDEO_TYPE "HDMI" CACHE STRING "Video output: VGA or HDMI")
+set(HDMI_90HZ OFF CACHE STRING "Video output: 90 Hz 640*480 HDMI")
 
 # Audio output configuration (I2S or PWM)
-set(AUDIO_TYPE "PWM" CACHE STRING "Audio output: I2S or PWM")
+set(AUDIO_TYPE "I2S" CACHE STRING "Audio output: I2S or PWM")
 
 # CPU overclock configuration (252, 378, 428(VGA), 504 MHz)
-set(CPU_SPEED "378" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
+set(CPU_SPEED "504" CACHE STRING "CPU speed: 252, 378, 428 (VGA only), 504 MHz")
 
 # PSRAM speed configuration (84, 100, 133, 166 MHz target)
 #set(PSRAM_SPEED "133" CACHE STRING "PSRAM max frequency in MHz: 84, 100, 133, 166")
 set(FLASH_MAX_FREQ_MHZ "66")
+
+if(BOARD_VARIANT STREQUAL "Z0" AND PICO_BOARD STREQUAL "pico2")
+    # Waveshare RP2350-PiZero: RP2350B (48 GPIOs). The stock pico2 board header
+    # declares RP2350A, which caps GPIOs at 0..29, so HDMI on GPIO32..39 and
+    # microSD on GPIO30..43 would not work.
+    set(PICO_BOARD_HEADER_DIRS ${CMAKE_CURRENT_LIST_DIR}/boards CACHE PATH "" FORCE)
+    set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type" FORCE)
+endif()
 
 if(VIDEO_TYPE STREQUAL "HDMI")
     set(VIDEO_HDMI ON)
@@ -70,8 +79,18 @@ endif()
 IF(VIDEO_VGA)
     SET(BUILD_NAME "${BUILD_NAME}-VGA")
 endif ()
+# HDMI 640x480 at 90 Hz (37.8 MHz pixel clock): integer PIO divider at 378 MHz.
+# The display must accept 640x480 at 90 Hz.
+option(HDMI_90HZ "HDMI 640x480 at 90 Hz (CPU_SPEED 378 only)" OFF)
+if(HDMI_90HZ AND NOT CPU_SPEED STREQUAL "378")
+    message(FATAL_ERROR "HDMI_90HZ needs CPU_SPEED=378 (PIO divider 1.0)")
+endif()
+
 IF(VIDEO_HDMI)
     SET(BUILD_NAME "${BUILD_NAME}-HDMI")
+    IF(HDMI_90HZ)
+        SET(BUILD_NAME "${BUILD_NAME}-90Hz")
+    endif ()
 endif ()
 
 if(PICO_BOARD STREQUAL "pico")
@@ -189,6 +208,7 @@ pico_generate_pio_header(drivers ${CMAKE_CURRENT_LIST_DIR}/drivers/audio_i2s.pio
 
 target_include_directories(drivers PUBLIC drivers drivers/nespad src ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(drivers PRIVATE
+    HDMI_90HZ=$<BOOL:${HDMI_90HZ}>
     BOARD_${BOARD_VARIANT}
     I2S_DATA_PIN=${I2S_DATA_PIN}
     I2S_CLOCK_PIN_BASE=${I2S_CLOCK_PIN_BASE}

@@ -49,6 +49,17 @@ void graphics_set_shift(int x, int y) {
     graphics_buffer_shift_y = y;
 }
 
+#if HDMI_90HZ
+// 640x480 timing (800x525) at 37.8 MHz pixel clock = 90 Hz frame rate:
+// at 378 MHz the PIO serializer then runs with divider 1.0 instead of 1.5
+// (see hdmi_init). The emulator paces itself by time, not by frames.
+static struct video_mode_t video_mode = {
+    .h_total = 524,
+    .h_width = 480,
+    .freq = 90,
+    .vgaPxClk = 37800000
+};
+#else
 static struct video_mode_t video_mode = {
     // 640x480 60Hz
     .h_total = 524,
@@ -56,6 +67,7 @@ static struct video_mode_t video_mode = {
     .freq = 60,
     .vgaPxClk = 25175000
 };
+#endif
 
 void __not_in_flash_func(vsync_handler)() {
     // Called from DMA IRQ at frame boundary.
@@ -550,8 +562,13 @@ static inline bool hdmi_init() {
     sm_config_set_out_shift(&c_c, true, true, 30);
     sm_config_set_fifo_join(&c_c, PIO_FIFO_JOIN_TX);
 
+#if HDMI_90HZ
+    // TMDS bit rate = pixel clock x 10 = 378 Mbit/s: one PIO step per sys clock at 378 MHz
+    sm_config_set_clkdiv(&c_c, clock_get_hz(clk_sys) / 378000000.0f);
+#else
     int hdmi_hz = video_mode.freq;
     sm_config_set_clkdiv(&c_c, (clock_get_hz(clk_sys) / 252000000.0f) * (60 / hdmi_hz));
+#endif
     pio_sm_init(PIO_VIDEO, SM_video, offs_prg0, &c_c);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, true);
 
